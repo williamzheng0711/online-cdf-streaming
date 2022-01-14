@@ -36,7 +36,7 @@ RTT = 0.00005
 networkSamplingInterval = 0.25
 
 count = 0
-howLongIsVideo = 20000
+howLongIsVideo = 10000
 
 NETWORK_TRACE = "1h_less"
 network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
@@ -56,14 +56,14 @@ for suffixNum in range(8,9):
             networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
 
 
-startPoint = np.quantile(networkEnvTP, 0.005)
-endPoint = np.quantile(networkEnvTP, 0.995)
+startPoint = np.quantile(networkEnvTP, 0.0005)
+endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
 # samplePoints = 200
-samplePoints = 100
-marginalSample = 5
+samplePoints = 40
+marginalSample = 3
         
 if (startPoint!=0):
     binsMe=np.concatenate( (np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
@@ -105,7 +105,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         timeNeeded = howLongIsVideo
 
     tempTimeTrack = (1/FPS)*timeDataLoad
-    for index in range(timeNeeded):
+    for _ in range(timeNeeded):
         frame_prepared_time.append(tempTimeTrack)
         tempTimeTrack = tempTimeTrack + 1/FPS
     
@@ -134,7 +134,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         if (singleFrame!=len(frame_prepared_time)-1 and 
             runningTime > frame_prepared_time[singleFrame + 1] + 0 ):
             
-            count_skip = count_skip   + 1
+            count_skip = count_skip + 1
             continue
 
         
