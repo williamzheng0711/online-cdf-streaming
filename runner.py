@@ -134,7 +134,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         if (singleFrame!=len(frame_prepared_time)-1 and 
             runningTime > frame_prepared_time[singleFrame + 1] + 0 ):
             
-            count_skip = count_skip + 1
+            count_skip = count_skip   + 1
             continue
 
         
