@@ -12,6 +12,8 @@ from numpy.core.fromnumeric import argmax, argmin, mean, size, var
 import utils as utils
 import matplotlib.pyplot as pyplot
 import multiLinreg as MLR
+from scipy.stats import laplace
+
 
 
 
@@ -304,18 +306,18 @@ for ratio in xAxis:
     binsMe = a[-1]    
     binPlot = binsMe[0:len(binsMe)-1]
 
-    # if (ratio == xAxis[-1]):
-    #     for i in range(floor(samplePoints/3),floor(samplePoints/3) +5):
-    #         origData = utils.mleFunction(binsMe=binsMe , probability=model, past= i)
-    #         y =  origData[-1]
-    #         ag, bg = laplace.fit( y )
+    if (ratio == xAxis[-1]):
+        for i in range(floor(samplePoints/3),floor(samplePoints/3) +5):
+            origData = utils.mleFunction(binsMe=binsMe , probability=model, past= i)
+            y =  origData[-1]
+            ag, bg = laplace.fit( y )
 
-    #         pyplot.hist(y,bins=binsMe,density=False)
-    #         binUsed = [0] + binsMe
-    #         pyplot.plot(binPlot, [ len(y)*( laplace.cdf(binUsed[v+1], ag, bg) -laplace.cdf(binUsed[v], ag, bg) )  for x,v in zip(binUsed[0:len(binUsed)-1],range(len(binUsed)))], '--', color ='black')
-    #         pyplot.xlabel("Sampled Ci's magnitude")
-    #         pyplot.ylabel("# of occurs")
-    #         pyplot.show()
+            pyplot.hist(y,bins=binsMe,density=False)
+            binUsed = [0] + binsMe
+            pyplot.plot(binPlot, [ len(y)*( laplace.cdf(binUsed[v+1], ag, bg) -laplace.cdf(binUsed[v], ag, bg) )  for x,v in zip(binUsed[0:len(binUsed)-1],range(len(binUsed)))], '--', color ='black')
+            pyplot.xlabel("Sampled Ci's magnitude, ag: " + str(ag) + " bg: "+ str(bg))
+            pyplot.ylabel("# of occurs")
+            pyplot.show()
 
 
 print(var(networkEnvBW))
