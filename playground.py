@@ -57,6 +57,8 @@ def uploadProcess(user_id, pTR):
 
         MIN_TP = min(networkEnvBW)
         MAX_TP = max(networkEnvBW)
+        print("Max: "+ str(MAX_TP))
+        print(endPoint)
         
         if (startPoint!=0):
             binsMe = np.concatenate(( np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), axis=0)
@@ -280,7 +282,7 @@ def uploadProcess(user_id, pTR):
 
 trackUse = [1,16,128]
 
-xAxis = np.linspace(0.03,0.85, num=5)
+xAxis = np.linspace(0.03,0.85, num=3)
 yECMAxis = []
 y1Axis = []
 y16Axis = []
