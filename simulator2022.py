@@ -6,6 +6,7 @@
 import csv
 from math import exp, floor, pi, sin, sqrt
 from operator import index, indexOf, ne
+from shutil import which
 import numpy as np
 from numpy.core.numeric import False_
 from scipy.stats import laplace
@@ -28,11 +29,9 @@ import ecm_model as ECMModel
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
-FPS = 4
+FPS = 50
 
-RTT = 0.00005
-
-networkSamplingInterval = 0.25
+networkSamplingInterval = 0.02
 
 count = 0
 howLongIsVideo = 10000
@@ -45,7 +44,8 @@ networkEnvTP= []
 
 timeDataLoad = 50000
 
-for suffixNum in range(8,9):
+whichVideo = 13
+for suffixNum in range(whichVideo,whichVideo+1):
     networkEnvTP = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
         for line in file1:
@@ -60,7 +60,7 @@ endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 40
+samplePoints = 45
 marginalSample = 3
         
 if (startPoint!=0):
@@ -74,23 +74,16 @@ else:
                               axis=0)
 
 # binsMe =  np.linspace( MIN_TP, MAX_TP, samplePoints, endpoint=True) 
-
-
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
-
-# 因為訓練和實測 用的是一個代碼 所以需要有 forTrain 變量
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
-
     frame_prepared_time = []
     frame_start_send_time = []
     throughputHistoryLog = []
     realVideoFrameSize = []
     readVideoFrameNo = []
-
     probabilityModel = np.array(probability)
     toBeDeleted = pForgetList
-
     if (forTrain):
         timeNeeded = timeDataLoad
     else: 
@@ -103,56 +96,49 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
     
 
     uploadDuration = 0
-
-    # runningTime means the current time (called current_time in the ACM file)
     runningTime = (1/FPS)*timeDataLoad
 
     # initialize the C_0 hat (in MB)
     throughputEstimate = (1/FPS) * mean(networkEnvTP) 
-    minimalSize = minimal_framesize
     count_skip = 0
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( timeNeeded ):
         if (singleFrame % 10000 == 0 and forTrain == True): print(str(format(singleFrame/timeNeeded, ".3f"))+ " Please wait..." )
-    
         # The "if" condition is a must
         # because I do not know the corresponding network environment (goes beyond the record of bandwidth).
         if ( int(runningTime / networkSamplingInterval)  >= len(networkEnvTP)
             or singleFrame>timeNeeded ):
             break 
 
-        if (singleFrame!=len(frame_prepared_time)-1 or
-            runningTime > frame_prepared_time[singleFrame + 1] ):
-            
+        # To consider the latency caused by previous frames
+        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1]):
             count_skip = count_skip + 1
             continue
 
-        
-        delta = 0
-        if (singleFrame >0 
-            and ( runningTime <= frame_prepared_time[singleFrame])): 
-            runningTime = max( frame_prepared_time[singleFrame]  )
-            
-            delta = (runningTime -  frame_prepared_time[singleFrame])
+        if (singleFrame >0 and ( runningTime <= frame_prepared_time[singleFrame])): 
+            # 上一次的傳輸太快了，導致新的幀還沒生成出來
+            runningTime = frame_prepared_time[singleFrame] 
 
+
+        delta = runningTime -  frame_prepared_time[singleFrame]
+        suggestedFrameSize = minimal_framesize
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
+            # throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
+            throughputEstimate = ECMModel.confidenceSuggest(C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, z=(1/FPS - delta), FPS=FPS, probModel=probabilityModel)[0]
             suggestedFrameSize = throughputEstimate * (1/FPS - delta) 
+
             if (throughputEstimate == -1 and singleFrame!=0):
                 suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS  - delta) 
                         
         elif (estimatingType == "LastMeasure" and len(throughputHistoryLog) > 0 ):
             suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS - delta) 
-                                
-        else: 
-            suggestedFrameSize = throughputEstimate* (1/FPS  - delta)
 
         # need to judge in my new rule
         # if suggested value < minimal size, then we discard the frame
-        thisFrameSize =  max ( suggestedFrameSize, minimalSize )
+        thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
-        realVideoFrameSize.append( thisFrameSize )
+        realVideoFrameSize.append(thisFrameSize)
         readVideoFrameNo.append(singleFrame)
 
         uploadFinishTime = utils.frame_upload_done_time( 
@@ -191,28 +177,31 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
                     probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
                     toBeDeleted = toBeDeleted[2:]
 
-
-
     return [
         sum(realVideoFrameSize),
         probabilityModel,
         count_skip, 
-        minimalSize
+        minimal_framesize
         ]
 
 
 
-number = 3
+number = 30
 
 midPoint = 0.005
 
 
 mAxis = [1,16,128]
 xAxis = np.concatenate( (np.linspace(0.0001, midPoint ,num=3, endpoint=False), 
-                        np.linspace(midPoint, 0.06 ,num=number, endpoint=True)),
+                        np.linspace(midPoint, 0.1 ,num=number, endpoint=True)),
                         axis=0)
 
-pre = utils.constructProbabilityModel(networkEnvBW=networkEnvTP[0:timeDataLoad] , binsMe=binsMe, networkSampleFreq=networkSamplingInterval, traceDataSampleFreq=networkSamplingInterval)
+pre = utils.constructProbabilityModel(
+    networkEnvBW=networkEnvTP[0:timeDataLoad], 
+    binsMe=binsMe, 
+    networkSampleFreq=networkSamplingInterval, 
+    traceDataSampleFreq=networkSamplingInterval)
+
 model_trained = pre[0]
 forgetList = pre[1]
 
@@ -223,10 +212,10 @@ for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
 
         pyplot.hist(y,bins=binsMe,density=False)
         binUsed = [0] + binsMe
-        pyplot.plot(binsMe, 
-                    [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
-                    '--', 
-                    color ='black')
+        # pyplot.plot(binsMe, 
+        #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
+        #             '--', 
+        #             color ='black')
         pyplot.xlabel("Sampled Ci's magnitude")
         pyplot.ylabel("# of occurrence")
         pyplot.show()

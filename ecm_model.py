@@ -46,3 +46,22 @@ def probest(C_iMinus1, binsMe, probModel, marginal):
         predictedValue = -1
     
     return [predictedValue]
+
+
+def confidenceSuggest(C_iMinus1, binsMe, probModel, z, FPS):
+    # print("C-i-1 "+ str(C_iMinus1) )
+    past = -1
+
+    predictedValue = C_iMinus1
+
+    for indexPast in range(len(binsMe)-1):
+        if (binsMe[indexPast] <= C_iMinus1 and binsMe[indexPast+1] >C_iMinus1):
+            past = indexPast
+
+    if (sum(probModel[past]) >= 30): 
+        predictedValue = (1+ 0.1/(z*FPS)) * utils.veryConfidentFunction(binsMe=binsMe,probability=probModel,past= indexPast ,quant=0.2)[0]
+
+    else: 
+        predictedValue = -1
+    
+    return [predictedValue]
