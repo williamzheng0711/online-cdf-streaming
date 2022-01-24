@@ -29,9 +29,9 @@ import ecm_model as ECMModel
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
-FPS = 50
+FPS = 10
 
-networkSamplingInterval = 0.02
+networkSamplingInterval = 0.1
 
 count = 0
 howLongIsVideo = 10000
@@ -42,9 +42,9 @@ network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
 networkEnvTime = []
 networkEnvTP= []
 
-timeDataLoad = 50000
+timeDataLoad = 20000
 
-whichVideo = 13
+whichVideo = 10
 for suffixNum in range(whichVideo,whichVideo+1):
     networkEnvTP = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
@@ -55,13 +55,13 @@ for suffixNum in range(whichVideo,whichVideo+1):
             networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
 
 
-startPoint = np.quantile(networkEnvTP, 0.0005)
-endPoint = np.quantile(networkEnvTP, 0.9995)
+startPoint = np.quantile(networkEnvTP, 0.005)
+endPoint = np.quantile(networkEnvTP, 0.995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 45
-marginalSample = 3
+samplePoints = 40
+marginalSample = 2
         
 if (startPoint!=0):
     binsMe=np.concatenate( (np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
@@ -73,7 +73,6 @@ else:
                               np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
                               axis=0)
 
-# binsMe =  np.linspace( MIN_TP, MAX_TP, samplePoints, endpoint=True) 
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
@@ -96,7 +95,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
     
 
     uploadDuration = 0
-    runningTime = (1/FPS)*timeDataLoad
+    # This ensures that training data is not over-lapping with testing data
+    runningTime = (1/FPS)*timeDataLoad 
 
     # initialize the C_0 hat (in MB)
     throughputEstimate = (1/FPS) * mean(networkEnvTP) 
@@ -104,7 +104,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( timeNeeded ):
-        if (singleFrame % 10000 == 0 and forTrain == True): print(str(format(singleFrame/timeNeeded, ".3f"))+ " Please wait..." )
+        if (singleFrame % 5000 == 0 and forTrain == True): print(str(format(singleFrame/timeNeeded, ".3f"))+ " Please wait..." )
         # The "if" condition is a must
         # because I do not know the corresponding network environment (goes beyond the record of bandwidth).
         if ( int(runningTime / networkSamplingInterval)  >= len(networkEnvTP)
@@ -112,7 +112,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
             break 
 
         # To consider the latency caused by previous frames
-        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1]):
+        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1] + 0.05/FPS):
             count_skip = count_skip + 1
             continue
 
@@ -186,15 +186,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 30
-
-midPoint = 0.005
-
+number = 50
 
 mAxis = [1,16,128]
-xAxis = np.concatenate( (np.linspace(0.0001, midPoint ,num=3, endpoint=False), 
-                        np.linspace(midPoint, 0.1 ,num=number, endpoint=True)),
-                        axis=0)
+xAxis =  np.linspace(0.01, 0.35 ,num=number, endpoint=True)
 
 pre = utils.constructProbabilityModel(
     networkEnvBW=networkEnvTP[0:timeDataLoad], 
@@ -266,7 +261,7 @@ for trackUsed in mAxis:
                 markersize=1, linewidth=1)
     pyplot.plot(xAxis, z1Axis, '-s', color='red',
                 markersize=1, linewidth=1)
-    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=2)
+    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=4)
 
 pyplot.show()
 
