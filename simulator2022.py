@@ -189,7 +189,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 50
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.01, 0.35 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.01, 0.07 ,num=number, endpoint=True)
 
 pre = utils.constructProbabilityModel(
     networkEnvBW=networkEnvTP[0:timeDataLoad], 
