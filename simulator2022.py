@@ -29,9 +29,9 @@ import ecm_model as ECMModel
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
-FPS = 10
+FPS = 25
 
-networkSamplingInterval = 0.1
+networkSamplingInterval = 0.04
 
 count = 0
 howLongIsVideo = 10000
@@ -44,7 +44,7 @@ networkEnvTP= []
 
 timeDataLoad = 20000
 
-whichVideo = 10
+whichVideo = 12
 for suffixNum in range(whichVideo,whichVideo+1):
     networkEnvTP = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
@@ -60,7 +60,7 @@ endPoint = np.quantile(networkEnvTP, 0.995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 40
+samplePoints = 15
 marginalSample = 2
         
 if (startPoint!=0):
@@ -200,20 +200,20 @@ pre = utils.constructProbabilityModel(
 model_trained = pre[0]
 forgetList = pre[1]
 
-for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
-        origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
-        y =  origData[-1]
-        ag, bg = laplace.fit( y )
+# for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
+#         origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
+#         y =  origData[-1]
+#         ag, bg = laplace.fit( y )
 
-        pyplot.hist(y,bins=binsMe,density=False)
-        binUsed = [0] + binsMe
-        # pyplot.plot(binsMe, 
-        #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
-        #             '--', 
-        #             color ='black')
-        pyplot.xlabel("Sampled Ci's magnitude")
-        pyplot.ylabel("# of occurrence")
-        pyplot.show()
+#         pyplot.hist(y,bins=binsMe,density=False)
+#         binUsed = [0] + binsMe
+#         # pyplot.plot(binsMe, 
+#         #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
+#         #             '--', 
+#         #             color ='black')
+#         pyplot.xlabel("Sampled Ci's magnitude")
+#         pyplot.ylabel("# of occurrence")
+#         pyplot.show()
 
 df = pd.DataFrame(model_trained).to_csv("da.csv",header=False,index=False)
 
