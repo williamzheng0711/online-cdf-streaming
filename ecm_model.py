@@ -59,7 +59,7 @@ def confidenceSuggest(C_iMinus1, binsMe, probModel, z, FPS):
             past = indexPast
 
     if (sum(probModel[past]) >= 50): 
-        predictedValue = (1+ 0.1/(z*FPS)) * utils.veryConfidentFunction(binsMe=binsMe,probability=probModel,past= indexPast ,quant=0.15)[0]
+        predictedValue = (1+ 0.1/(z*FPS)) * utils.veryConfidentFunction(binsMe=binsMe,probability=probModel,past= indexPast ,quant=0.05)[0]
 
     else: 
         predictedValue = -1

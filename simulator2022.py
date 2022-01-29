@@ -29,12 +29,12 @@ import ecm_model as ECMModel
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
-FPS = 25
+FPS = 3
 
-networkSamplingInterval = 0.04
+networkSamplingInterval = 0.25
 
 count = 0
-howLongIsVideo = 10000
+howLongIsVideo = 20000
 
 NETWORK_TRACE = "1h_less"
 network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
@@ -42,9 +42,9 @@ network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
 networkEnvTime = []
 networkEnvTP= []
 
-timeDataLoad = 20000
+timeDataLoad = 40000
 
-whichVideo = 12
+whichVideo = 8
 for suffixNum in range(whichVideo,whichVideo+1):
     networkEnvTP = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
@@ -55,12 +55,12 @@ for suffixNum in range(whichVideo,whichVideo+1):
             networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
 
 
-startPoint = np.quantile(networkEnvTP, 0.005)
-endPoint = np.quantile(networkEnvTP, 0.995)
+startPoint = np.quantile(networkEnvTP, 0.0005)
+endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 15
+samplePoints = 70
 marginalSample = 2
         
 if (startPoint!=0):
@@ -112,7 +112,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
             break 
 
         # To consider the latency caused by previous frames
-        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1] + 0.05/FPS):
+        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1] + 0.1/FPS):
             count_skip = count_skip + 1
             continue
 
@@ -189,7 +189,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 50
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.01, 0.07 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.01, 0.25 ,num=number, endpoint=True)
 
 pre = utils.constructProbabilityModel(
     networkEnvBW=networkEnvTP[0:timeDataLoad], 
@@ -200,20 +200,20 @@ pre = utils.constructProbabilityModel(
 model_trained = pre[0]
 forgetList = pre[1]
 
-# for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
-#         origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
-#         y =  origData[-1]
-#         ag, bg = laplace.fit( y )
+for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
+        origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
+        y =  origData[-1]
+        ag, bg = laplace.fit( y )
 
-#         pyplot.hist(y,bins=binsMe,density=False)
-#         binUsed = [0] + binsMe
-#         # pyplot.plot(binsMe, 
-#         #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
-#         #             '--', 
-#         #             color ='black')
-#         pyplot.xlabel("Sampled Ci's magnitude")
-#         pyplot.ylabel("# of occurrence")
-#         pyplot.show()
+        pyplot.hist(y,bins=binsMe,density=False)
+        binUsed = [0] + binsMe
+        # pyplot.plot(binsMe, 
+        #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
+        #             '--', 
+        #             color ='black')
+        pyplot.xlabel("Sampled Ci's magnitude")
+        pyplot.ylabel("# of occurrence")
+        pyplot.show()
 
 df = pd.DataFrame(model_trained).to_csv("da.csv",header=False,index=False)
 
