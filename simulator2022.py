@@ -60,7 +60,7 @@ endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 70
+samplePoints = 60
 marginalSample = 2
         
 if (startPoint!=0):
@@ -75,6 +75,10 @@ else:
 
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
+
+pGamma = 0.1
+pEpsilon = 0.1
+
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
     frame_start_send_time = []
@@ -83,76 +87,93 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
     readVideoFrameNo = []
     probabilityModel = np.array(probability)
     toBeDeleted = pForgetList
-    if (forTrain):
-        timeNeeded = timeDataLoad
-    else: 
-        timeNeeded = howLongIsVideo
+ 
+    timeNeeded = howLongIsVideo
 
+    # This is to SKIP the training part of the data.
+    # Hence ensures that training data is not over-lapping with testing data
     tempTimeTrack = (1/FPS)*timeDataLoad
+    runningTime = (1/FPS)*timeDataLoad 
     for _ in range(timeNeeded):
         frame_prepared_time.append(tempTimeTrack)
         tempTimeTrack = tempTimeTrack + 1/FPS
     
 
     uploadDuration = 0
-    # This ensures that training data is not over-lapping with testing data
-    runningTime = (1/FPS)*timeDataLoad 
 
-    # initialize the C_0 hat (in MB)
+    # initialize the C_0 hat (in MB), which is a "default guess"
     throughputEstimate = (1/FPS) * mean(networkEnvTP) 
     count_skip = 0
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( timeNeeded ):
-        if (singleFrame % 5000 == 0 and forTrain == True): print(str(format(singleFrame/timeNeeded, ".3f"))+ " Please wait..." )
+        ########################################################################################
+        # Start a new frame sending process.
+
         # The "if" condition is a must
         # because I do not know the corresponding network environment (goes beyond the record of bandwidth).
         if ( int(runningTime / networkSamplingInterval)  >= len(networkEnvTP)
             or singleFrame>timeNeeded ):
             break 
 
-        # To consider the latency caused by previous frames
-        if ( singleFrame < timeNeeded-1 and runningTime > frame_prepared_time[singleFrame + 1] + 0.1/FPS):
+        # To determine if singleFrame is skipped
+        if ( singleFrame < timeNeeded - 1 and runningTime > frame_prepared_time[singleFrame + 1] + pGamma/FPS):
             count_skip = count_skip + 1
             continue
 
         if (singleFrame >0 and ( runningTime <= frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
+            # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame] 
 
 
-        delta = runningTime -  frame_prepared_time[singleFrame]
+        #######################################################################################
+        # Anyway, from now on, the uploader is ready to send singleFrame
+        # In this part, we determine what is the suggestedFrameSize 
+        # We initialize the guess as minimal_framesize
         suggestedFrameSize = minimal_framesize
+
+        delta = runningTime -  frame_prepared_time[singleFrame]
+        T_i = (1/FPS - delta)
+        r_i = T_i * FPS
+        
+
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             # throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
-            throughputEstimate = ECMModel.confidenceSuggest(C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, z=(1/FPS - delta), FPS=FPS, probModel=probabilityModel)[0]
-            suggestedFrameSize = throughputEstimate * (1/FPS - delta) 
+            throughputEstimate = ( 1 + pGamma/r_i ) * utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel,past= indexPast , quant=pEpsilon)[0]
+            suggestedFrameSize = throughputEstimate * T_i
 
             if (throughputEstimate == -1 and singleFrame!=0):
-                suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS  - delta) 
+                suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
                         
-        elif (estimatingType == "LastMeasure" and len(throughputHistoryLog) > 0 ):
-            suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS - delta) 
+        elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
+            suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
         # need to judge in my new rule
         # if suggested value < minimal size, then we discard the frame
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
-        realVideoFrameSize.append(thisFrameSize)
-        readVideoFrameNo.append(singleFrame)
+        # Until now, the suggestedFrameSize is fixed.
+        ########################################################################################
 
+        # We record the sent frames' information in this array.
+        realVideoFrameSize.append(thisFrameSize)
+        # readVideoFrameNo.append(singleFrame)
+
+        # frame_start_send_time is the list of UPLOADER's sending time on each frame
+        frame_start_send_time.append(runningTime)
+
+        # The following function will calculate t_f.
         uploadFinishTime = utils.frame_upload_done_time( 
             runningTime = runningTime,
             networkEnvBW = networkEnvTP,
             size = thisFrameSize,
             networkSamplingInterval = networkSamplingInterval)
-        
-        uploadDuration = uploadFinishTime - runningTime # upload 指的僅僅是把視頻塊塊搬上鏈路
-        
-        # frame_start_send_time is the list of UPLOADER's sending time on each frame
-        frame_start_send_time.append(runningTime)
+        uploadDuration = uploadFinishTime - runningTime
+        # To update the current time clock, now we finished the old frame's transmission.
         runningTime = runningTime + uploadDuration 
 
+        # Here we calculated the C_{i-1}
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
 
@@ -177,26 +198,17 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
                     probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
                     toBeDeleted = toBeDeleted[2:]
 
-    return [
-        sum(realVideoFrameSize),
-        probabilityModel,
-        count_skip, 
-        minimal_framesize
-        ]
+    return [ sum(realVideoFrameSize), probabilityModel, count_skip, minimal_framesize]
 
 
 
-number = 50
+number = 15
 
 mAxis = [1,16,128]
 xAxis =  np.linspace(0.01, 0.25 ,num=number, endpoint=True)
 
-pre = utils.constructProbabilityModel(
-    networkEnvBW=networkEnvTP[0:timeDataLoad], 
-    binsMe=binsMe, 
-    networkSampleFreq=networkSamplingInterval, 
-    traceDataSampleFreq=networkSamplingInterval)
-
+# To Train the Model
+pre = utils.constructProbabilityModel( networkEnvBW=networkEnvTP[0:timeDataLoad],  binsMe=binsMe,  networkSampleFreq=networkSamplingInterval,  traceDataSampleFreq=networkSamplingInterval)
 model_trained = pre[0]
 forgetList = pre[1]
 
@@ -227,7 +239,7 @@ for trackUsed in mAxis:
     z2Axis = []
 
     for x in xAxis:
-        a = uploadProcess('dummyUsername1', x , "LastMeasure", "dummy", forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
+        a = uploadProcess('dummyUsername1', x , "A.M.", "dummy", forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
         b = uploadProcess('dummyUsername2', x , "ProbabilityPredict", model_trained , forTrain=False, pTrackUsed=trackUsed, pForgetList=forgetList)
         count_skipA = a[2]
         count_skipB = b[2]
@@ -237,7 +249,7 @@ for trackUsed in mAxis:
         z1Axis.append(a[0])
         z2Axis.append(b[0])
 
-        print("LastMeasure: " + str(a[0]) + " " + str(count_skipA/howLongIsVideo) + " with min-size: " + str(a[3]) )
+        print("A.M.: " + str(a[0]) + " " + str(count_skipA/howLongIsVideo) + " with min-size: " + str(a[3]) )
         print("ProbEstTest: " + str(b[0]) + " " + str(count_skipB/howLongIsVideo))
 
 
