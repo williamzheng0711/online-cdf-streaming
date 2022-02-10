@@ -25,26 +25,33 @@ import matplotlib.pyplot as pyplot
 from statistics import NormalDist
 from numpy import linalg as LA
 
-import ecm_model as ECMModel
+
 
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
-FPS = 3
 
-networkSamplingInterval = 0.25
 
-count = 0
-howLongIsVideo = 20000
+
+
+whichVideo = 12
+# Note that FPS >= 1/networkSamplingInterval
+FPS = 30
+networkSamplingInterval = 0.04
+
+# Testing Set Size
+howLongIsVideo = 8000
+# Training Data Size
+timeDataLoad = 20000
+
+
+
+
 
 NETWORK_TRACE = "1h_less"
 network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
-
 networkEnvTime = []
 networkEnvTP= []
-
-timeDataLoad = 40000
-
-whichVideo = 8
+count = 0
 for suffixNum in range(whichVideo,whichVideo+1):
     networkEnvTP = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
@@ -55,12 +62,14 @@ for suffixNum in range(whichVideo,whichVideo+1):
             networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
 
 
-startPoint = np.quantile(networkEnvTP, 0.0005)
-endPoint = np.quantile(networkEnvTP, 0.9995)
+
+
+startPoint = np.quantile(networkEnvTP, 0.005)
+endPoint = np.quantile(networkEnvTP, 0.995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 60
+samplePoints = 70
 marginalSample = 2
         
 if (startPoint!=0):
@@ -76,8 +85,9 @@ else:
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
 
-pGamma = 0.1
-pEpsilon = 0.1
+pGamma = 0.2
+pEpsilon = 0.05
+
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
@@ -137,7 +147,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         T_i = (1/FPS - delta)
         r_i = T_i * FPS
         
-
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             # throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
             throughputEstimate = ( 1 + pGamma/r_i ) * utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel,past= indexPast , quant=pEpsilon)[0]
@@ -202,13 +211,16 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 15
+number = 20
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.01, 0.25 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.001, 0.15 ,num=number, endpoint=True)
 
 # To Train the Model
-pre = utils.constructProbabilityModel( networkEnvBW=networkEnvTP[0:timeDataLoad],  binsMe=binsMe,  networkSampleFreq=networkSamplingInterval,  traceDataSampleFreq=networkSamplingInterval)
+pre = utils.constructProbabilityModel( networkEnvBW=networkEnvTP[0:timeDataLoad],  
+                                       binsMe=binsMe,  
+                                       networkSampleFreq=networkSamplingInterval,  
+                                       traceDataSampleFreq=networkSamplingInterval )
 model_trained = pre[0]
 forgetList = pre[1]
 
@@ -249,8 +261,8 @@ for trackUsed in mAxis:
         z1Axis.append(a[0])
         z2Axis.append(b[0])
 
-        print("A.M.: " + str(a[0]) + " " + str(count_skipA/howLongIsVideo) + " with min-size: " + str(a[3]) )
-        print("ProbEstTest: " + str(b[0]) + " " + str(count_skipB/howLongIsVideo))
+        print("A.M.(M="+str(trackUsed)+"): " +  str(a[0]) + " " + str(count_skipA/howLongIsVideo) + " with min-size: " + str(a[3]) )
+        print("OurMethod: " + str(b[0]) + " " + str(count_skipB/howLongIsVideo))
 
 
     print("Mean of this network: " + str(mean(networkEnvTP)))

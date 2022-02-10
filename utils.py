@@ -1,4 +1,5 @@
 import math
+from warnings import catch_warnings
 from matplotlib.pyplot import summer
 from numpy.core.fromnumeric import argmax, partition
 from numpy.lib.function_base import median
@@ -130,7 +131,8 @@ def veryConfidentFunction(binsMe,probability,past, quant):
             # histogram_establish.append(0.5*binsMe[index]+0.5*binsMe[index+1])
             histogram_establish.append( binsMe[index] + (binsMe[index+1]-binsMe[index])*counter/ppValue )
     
-    valueGiven = np.quantile(histogram_establish,quant)
+    try: valueGiven = np.quantile(histogram_establish,quant)
+    except: valueGiven = -1
 
     return [ valueGiven, histogram_establish]
 
