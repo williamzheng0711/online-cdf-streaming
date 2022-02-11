@@ -36,7 +36,7 @@ B_IN_MB = 1000.0*1000.0
 whichVideo = 12
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 25
-networkSamplingInterval = 0.04
+networkSamplingInterval = 1 / FPS
 
 # Testing Set Size
 howLongIsVideo = 9000
@@ -214,7 +214,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 20
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.001, 0.15 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.001, 1.55 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW=networkEnvTP[0:timeDataLoad],  

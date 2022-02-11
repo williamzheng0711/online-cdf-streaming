@@ -9,8 +9,7 @@ import numpy as np
 from numpy.core.fromnumeric import argmax, mean, size, var
 import math
 import random
-
-
+import bisect
 
 B_IN_MB = 1000.0*1000.0
 
@@ -55,8 +54,40 @@ def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInte
     
     if (size<=0): 
         return runningTime
-    
     print(size)
+
+
+def find_gt_index(a, x):
+    'Find leftmost value greater than x'
+    i = bisect.bisect_right(a, x)
+    if i != len(a):
+        return i
+    raise ValueError
+
+
+def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize ):
+    # shift = next(x for x, val in enumerate(packet_level_timestamp) if val > runningTime) 
+    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
+    i = 0 
+
+    while (framesize > 0): 
+        if (i == 0):
+            i = 1
+            s_temp = framesize - packet_level_data[shift]
+            # print(s_temp)
+            if (s_temp<=0):
+                t_out = packet_level_timestamp[shift]
+                return t_out
+            framesize = s_temp
+        else: 
+            # print(shift)
+            s_temp = framesize - packet_level_data[shift]
+            # print(s_temp)
+            if (s_temp<=0): 
+                t_out = packet_level_timestamp[shift]
+                return t_out
+            framesize = s_temp
+        shift = shift +1
 
 def expectationFunction(binsMe,probability,past,marginal):
     result = 0
