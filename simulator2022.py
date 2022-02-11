@@ -33,15 +33,15 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 12
+whichVideo = 13
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 30
-networkSamplingInterval = 0.04
+FPS = 25
+networkSamplingInterval = 0.02
 
 # Testing Set Size
-howLongIsVideo = 8000
+howLongIsVideo = 9000
 # Training Data Size
-timeDataLoad = 20000
+timeDataLoad = 30000
 
 
 
@@ -64,12 +64,12 @@ for suffixNum in range(whichVideo,whichVideo+1):
 
 
 
-startPoint = np.quantile(networkEnvTP, 0.005)
-endPoint = np.quantile(networkEnvTP, 0.995)
+startPoint = np.quantile(networkEnvTP, 0.0005)
+endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 70
+samplePoints = 50
 marginalSample = 2
         
 if (startPoint!=0):
@@ -272,7 +272,7 @@ for trackUsed in mAxis:
     toPlot += 1
     pyplot.subplot( len(mAxis),2,toPlot)
     pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Loss Rate (Discard Rate)")
+    pyplot.ylabel("Loss Rate")
     pyplot.plot(xAxis, y2Axis, '-s', color='blue', markersize=1, linewidth=1)
     pyplot.plot(xAxis, y1Axis, '-s', color='red', markersize=1, linewidth=1)
     pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=2)
