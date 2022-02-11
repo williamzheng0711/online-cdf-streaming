@@ -86,7 +86,7 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
 
 pGamma = 0.2
-pEpsilon = 0.05
+pEpsilon = 0.5
 
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
