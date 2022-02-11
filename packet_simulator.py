@@ -33,7 +33,7 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 12
+whichVideo = 1
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 25
 networkSamplingInterval = 0.04
@@ -44,32 +44,35 @@ howLongIsVideo = 9000
 timeDataLoad = 30000
 
 
+network_trace_dir = './dataset/fyp_lab/'
 
-
-
-NETWORK_TRACE = "1h_less"
-network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
 networkEnvTime = []
-networkEnvTP= []
+networkEnvPacket= []
+
 count = 0
+initialTime = 0
+
 for suffixNum in range(whichVideo,whichVideo+1):
-    networkEnvTP = []
-    with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
-        for line in file1:
+    with open( network_trace_dir+ str(suffixNum) + ".csv" ) as file1:
+        for line, i in zip(file1,range(file1)):
             count = count  +1 
             # if (count<400000):
+
             parse = line.split()
-            networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
+            if (i==0):
+                initialTime = float(parse[0])
+            nowTime = float(parse[0]) 
+            networkEnvTime.append(nowTime - initialTime)
+            networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
 
 
 
-
-startPoint = np.quantile(networkEnvTP, 0.005)
-endPoint = np.quantile(networkEnvTP, 0.995)
+startPoint = np.quantile(networkEnvTP, 0.0005)
+endPoint = np.quantile(networkEnvTP, 0.9995)
 MIN_TP = min(networkEnvTP)
 MAX_TP = max(networkEnvTP)
 
-samplePoints = 40
+samplePoints = 50
 marginalSample = 2
         
 if (startPoint!=0):
