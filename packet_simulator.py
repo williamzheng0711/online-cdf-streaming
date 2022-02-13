@@ -35,15 +35,15 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 1
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 25
 
 # Testing Set Size
-howLongIsVideoInSeconds = 360
+howLongIsVideoInSeconds = 180
 
 # Training Data Size
-timePacketsDataLoad = 200000
+timePacketsDataLoad = 300000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -235,10 +235,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 30
+number = 25
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.01, 0.15 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.01, 0.25 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
