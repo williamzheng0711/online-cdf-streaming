@@ -34,15 +34,15 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 2
+whichVideo = 4
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 25
+FPS = 45
 
 # Testing Set Size
 howLongIsVideoInSeconds = 180
 
 # Training Data Size
-timePacketsDataLoad = 600000
+timePacketsDataLoad = 3000000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -69,7 +69,6 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # All things below are of our business
 
 ratioTrain = 0.5
-ratioTest = 1 - ratioTrain
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
 
@@ -87,12 +86,12 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.005)
-endPoint = np.quantile(sampleThroughputRecord, 0.995)
+startPoint = np.quantile(sampleThroughputRecord, 0.01)
+endPoint = np.quantile(sampleThroughputRecord, 0.99)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 70
+samplePoints = 100
 marginalSample = 2
         
 if (startPoint!=0):
@@ -112,7 +111,7 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.5
+pGamma = 0.2
 pEpsilon = 0.1
 
 testingTimeStart = timeTrack
@@ -234,10 +233,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 10
+number = 30
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.0001, 0.1 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
@@ -304,7 +303,7 @@ for trackUsed in mAxis:
     toPlot += 1
     pyplot.subplot( len(mAxis),2,toPlot)
     pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Data sent in" + str(howLongIsVideoInSeconds) +"sec" )
+    pyplot.ylabel("Data sent in" + str(howLongIsVideoInSeconds) +" sec" )
     pyplot.plot(xAxis, z2Axis, '-s', color='blue',
                 markersize=1, linewidth=1)
     pyplot.plot(xAxis, z1Axis, '-s', color='red',
