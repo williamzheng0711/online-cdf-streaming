@@ -29,7 +29,6 @@ from numpy import linalg as LA
 
 
 
-MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
 
 
@@ -43,7 +42,7 @@ FPS = 25
 howLongIsVideoInSeconds = 180
 
 # Training Data Size
-timePacketsDataLoad = 300000
+timePacketsDataLoad = 600000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -113,8 +112,8 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.2
-pEpsilon = 0.5
+pGamma = 0.5
+pEpsilon = 0.1
 
 testingTimeStart = timeTrack
 
@@ -235,10 +234,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 25
+number = 10
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.01, 0.25 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.0001, 0.1 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
