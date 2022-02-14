@@ -183,7 +183,9 @@ def veryConfidentFunction2Past(binsMe,probability,past1,past2, quant):
 
 
 
-def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceDataSampleFreq):    
+def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceDataSampleFreq, threshold): 
+        if (len(networkEnvBW)>threshold):
+            networkEnvBW = networkEnvBW[len(networkEnvBW)-1 - threshold :len(networkEnvBW)-1]
         tobeDeleted = []
         probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
         marginalProbability  = [ 0 for  _ in  range(len(binsMe)) ]

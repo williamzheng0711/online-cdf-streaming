@@ -36,13 +36,13 @@ B_IN_MB = 1000.0*1000.0
 
 whichVideo = 4
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 45
+FPS = 25
 
 # Testing Set Size
 howLongIsVideoInSeconds = 180
 
 # Training Data Size
-timePacketsDataLoad = 3000000
+timePacketsDataLoad = 1000000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -86,23 +86,26 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.01)
-endPoint = np.quantile(sampleThroughputRecord, 0.99)
+startPoint = np.quantile(sampleThroughputRecord, 0.0005)
+endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
 samplePoints = 100
 marginalSample = 2
         
-if (startPoint!=0):
-    binsMe = np.concatenate(( np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
-                            np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
-                            np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
-                            axis=0)
-else:
-    binsMe = np.concatenate(( np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
-                              np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
-                              axis=0)
+# if (startPoint!=0):
+#     binsMe = np.concatenate(( np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
+#                             np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
+#                             np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
+#                             axis=0)
+# else:
+
+#     binsMe = np.concatenate(( np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
+#                               np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
+#                               axis=0)
+
+binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
 
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
@@ -185,20 +188,20 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
         # Until now, the suggestedFrameSize is fixed.
-        ########################################################################################
-
-        # We record the sent frames' information in this array.
-        realVideoFrameSize.append(thisFrameSize)
-        # readVideoFrameNo.append(singleFrame)
-
-        # frame_start_send_time is the list of UPLOADER's sending time on each frame
-        frame_start_send_time.append(runningTime)
+        #######################################################################################
 
         # The following function will calculate t_f.
         uploadFinishTime = utils.packet_level_frame_upload_finish_time( runningTime= runningTime,
                                                                         packet_level_data= networkEnvPacket,
                                                                         packet_level_timestamp= networkEnvTime,
                                                                         framesize= thisFrameSize)
+        
+        # We record the sent frames' information in this array.
+        realVideoFrameSize.append(thisFrameSize)
+        # readVideoFrameNo.append(singleFrame)
+
+        # frame_start_send_time is the list of UPLOADER's sending time on each frame
+        frame_start_send_time.append(runningTime)
 
         uploadDuration = uploadFinishTime - runningTime
         # To update the current time clock, now we finished the old frame's transmission.
@@ -236,13 +239,14 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 30
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.04 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
                                        binsMe = binsMe,  
                                        networkSampleFreq = 1/FPS,  
-                                       traceDataSampleFreq = 1/FPS )
+                                       traceDataSampleFreq = 1/FPS,
+                                       threshold= 300 * FPS )
 
 model_trained = pre[0]
 forgetList = pre[1]
