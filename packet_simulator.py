@@ -300,7 +300,7 @@ for trackUsed in mAxis:
     pyplot.ylabel("Loss Rate")
     pyplot.plot(xAxis, y2Axis, '-s', color='blue', markersize=1, linewidth=1)
     pyplot.plot(xAxis, y1Axis, '-s', color='red', markersize=1, linewidth=1)
-    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=2)
+    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc=2)
 
     toPlot += 1
     pyplot.subplot( len(mAxis),2,toPlot)
@@ -310,6 +310,6 @@ for trackUsed in mAxis:
                 markersize=1, linewidth=1)
     pyplot.plot(xAxis, z1Axis, '-s', color='red',
                 markersize=1, linewidth=1)
-    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=4)
+    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc=4)
 
 pyplot.show()
