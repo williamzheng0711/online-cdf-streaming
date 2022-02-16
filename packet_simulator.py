@@ -34,15 +34,15 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 2
+whichVideo = 6
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 25
+FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 180
+howLongIsVideoInSeconds = 540
 
 # Training Data Size
-timePacketsDataLoad = 2000000
+timePacketsDataLoad = 4000000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -86,8 +86,8 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.005)
-endPoint = np.quantile(sampleThroughputRecord, 0.995)
+startPoint = np.quantile(sampleThroughputRecord, 0.015)
+endPoint = np.quantile(sampleThroughputRecord, 0.9875)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
@@ -240,14 +240,14 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 30
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.2 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.06 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
                                        binsMe = binsMe,  
                                        networkSampleFreq = 1/FPS,  
                                        traceDataSampleFreq = 1/FPS,
-                                       threshold= 300 * FPS )
+                                       threshold= 600 * FPS )
 
 model_trained = pre[0]
 forgetList = pre[1]
@@ -303,7 +303,7 @@ for trackUsed in mAxis:
     pyplot.ylabel("Loss Rate")
     pyplot.plot(xAxis, y2Axis, '-s', color='blue', markersize=1, linewidth=1)
     pyplot.plot(xAxis, y1Axis, '-s', color='red', markersize=1, linewidth=1)
-    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc=2)
+    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc="best")
 
     toPlot += 1
     pyplot.subplot( len(mAxis),2,toPlot)
@@ -313,6 +313,6 @@ for trackUsed in mAxis:
                 markersize=1, linewidth=1)
     pyplot.plot(xAxis, z1Axis, '-s', color='red',
                 markersize=1, linewidth=1)
-    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc=4)
+    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc="best")
 
 pyplot.show()
