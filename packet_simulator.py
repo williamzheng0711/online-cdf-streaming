@@ -26,6 +26,8 @@ import os
 import matplotlib.pyplot as pyplot
 from statistics import NormalDist
 from numpy import linalg as LA
+from scipy.stats import norm, gaussian_kde
+from sklearn.neighbors import KernelDensity
 
 
 
@@ -34,12 +36,12 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 5
+whichVideo = 1
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 30
+FPS = 25
 
 # Testing Set Size
-howLongIsVideoInSeconds = 540
+howLongIsVideoInSeconds = 270
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -87,8 +89,8 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.01)
-endPoint = np.quantile(sampleThroughputRecord, 0.99)
+startPoint = np.quantile(sampleThroughputRecord, 0.0005)
+endPoint = np.quantile(sampleThroughputRecord, 0.98)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
@@ -116,8 +118,8 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.5
-pEpsilon = 0.3
+pGamma = 0.2
+pEpsilon = 0.2
 
 testingTimeStart = timeTrack
 
@@ -155,8 +157,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
             break 
 
         # To determine if singleFrame is skipped
-        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + pGamma/FPS):
-            # print(str(estimatingType)+  " Skipped " + str(singleFrame))
+        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + (0.8)/FPS):
+            # if (estimatingType=="ProbabilityPredict"): 
+            #     print(str(estimatingType)+  " Skipped " + str(singleFrame))
             count_skip = count_skip + 1
             continue
 
@@ -181,11 +184,24 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         r_i = T_i * FPS
         
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            # throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
-            throughputEstimate = ( 1 + pGamma/r_i ) * utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel,past= indexPast , quant=pEpsilon)[0]
+            [tempCihat_histo,tempHisto] = utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel, C_iMinus1=throughputHistoryLog[-1], quant=pEpsilon)
+            
+            x_index = -10
+            if (tempCihat_histo!=-1 and len(tempHisto)>1): 
+                scipy_kernel = gaussian_kde(tempHisto)
+                # print(tempHisto)
+                cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
+                x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
+                # pyplot.hist(tempHisto,bins=binsMe,density=True)
+                # v = scipy_kernel.evaluate(binsMe)
+                # pyplot.plot(binsMe,v)
+                # pyplot.show()
+
+            if (x_index != -10):
+                throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
             suggestedFrameSize = throughputEstimate * T_i
 
-            if (throughputEstimate == -1 and singleFrame!=0):
+            if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1 or x_index == -10 ):
                 suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
                         
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
@@ -244,10 +260,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 30
+number = 20
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.16 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.1 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
@@ -259,13 +275,17 @@ pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,
 model_trained = pre[0]
 forgetList = pre[1]
 
-# for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
+# for i in range( floor(samplePoints/4) ,floor(samplePoints/2)+5):
 #         origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
 #         y =  origData[-1]
-#         ag, bg = laplace.fit( y )
-
-#         pyplot.hist(y,bins=binsMe,density=False)
+#         # ag, bg = laplace.fit( y )
+#         scipy_kernel = gaussian_kde(y)
+#         bw = scipy_kernel.factor * np.std(y)
+#         pyplot.hist(y,bins=binsMe,density=True)
 #         binUsed = [0] + binsMe
+#         v = scipy_kernel.evaluate(binsMe)
+#         pyplot.plot(binsMe,v)
+
 #         # pyplot.plot(binsMe, 
 #         #             [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
 #         #             '--', 
@@ -278,7 +298,7 @@ df = pd.DataFrame(model_trained).to_csv("da.csv",header=False,index=False)
 
 toPlot = 0
 
-for trackUsed in mAxis:
+for trackUsed in mAxis[0:1]:
     y1Axis = []
     y2Axis = []
     y3Axis = []

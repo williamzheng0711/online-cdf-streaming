@@ -58,11 +58,18 @@ def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInte
 
 
 def find_gt_index(a, x):
-    'Find leftmost value greater than x'
+    'Find leftmost (index) value greater than x'
     i = bisect.bisect_right(a, x)
     if i != len(a):
         return i
     raise ValueError
+
+def find_le(a, x):
+    'Find rightmost value less than or equal to x'
+    i = bisect.bisect_right(a, x)
+    if i:
+        return i-1
+    return -1
 
 
 def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize ):
@@ -153,8 +160,16 @@ def mleFunction2Past(binsMe,probability,past1,past2):
     return [ giveBackValue, histogram_establish]
 
 
-def veryConfidentFunction(binsMe,probability,past, quant):
+def veryConfidentFunction(binsMe,probability,C_iMinus1, quant):
     histogram_establish = []
+
+    past = -1
+
+    for indexPast in range(len(binsMe)-1):
+        if (binsMe[indexPast] <= C_iMinus1 and binsMe[indexPast+1] >C_iMinus1):
+            past = indexPast
+
+    if (past == -1): return [-1, [] ]
     for ppValue, index in zip(probability[past], range(len(probability[past])-1)  ):
         counter = 0
         while (counter < ppValue):
