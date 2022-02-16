@@ -34,7 +34,7 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 4
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 25
 
@@ -42,7 +42,7 @@ FPS = 25
 howLongIsVideoInSeconds = 180
 
 # Training Data Size
-timePacketsDataLoad = 1000000
+timePacketsDataLoad = 2000000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -86,13 +86,16 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.0005)
+startPoint = np.quantile(sampleThroughputRecord, 0.005)
 endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 100
+samplePoints = 70
 marginalSample = 2
+
+binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
+
         
 # if (startPoint!=0):
 #     binsMe = np.concatenate(( np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
@@ -104,8 +107,6 @@ marginalSample = 2
 #     binsMe = np.concatenate(( np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
 #                               np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
 #                               axis=0)
-
-binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
 
 probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
@@ -239,7 +240,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 30
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.04 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.2 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
