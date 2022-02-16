@@ -34,7 +34,7 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 6
+whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 30
 
@@ -68,6 +68,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
 ############################################################################
 # All things below are of our business
 
+
 ratioTrain = 0.5
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
@@ -86,8 +87,8 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.015)
-endPoint = np.quantile(sampleThroughputRecord, 0.9875)
+startPoint = np.quantile(sampleThroughputRecord, 0.01)
+endPoint = np.quantile(sampleThroughputRecord, 0.99)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
@@ -115,8 +116,8 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.2
-pEpsilon = 0.1
+pGamma = 0.5
+pEpsilon = 0.3
 
 testingTimeStart = timeTrack
 
@@ -155,6 +156,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
         # To determine if singleFrame is skipped
         if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + pGamma/FPS):
+            # print(str(estimatingType)+  " Skipped " + str(singleFrame))
             count_skip = count_skip + 1
             continue
 
@@ -162,6 +164,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
+        
+        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
+            count_skip = count_skip + 1
+            continue
 
         #######################################################################################
         # Anyway, from now on, the uploader is ready to send singleFrame
@@ -171,6 +177,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = (1/FPS - delta)
+        # if (estimatingType == "ProbabilityPredict"): print(estimatingType, singleFrame, T_i)
         r_i = T_i * FPS
         
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
@@ -240,7 +247,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 30
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.06 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.16 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
