@@ -192,10 +192,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
                 # print(tempHisto)
                 cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
                 x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
-                # pyplot.hist(tempHisto,bins=binsMe,density=True)
-                # v = scipy_kernel.evaluate(binsMe)
-                # pyplot.plot(binsMe,v)
-                # pyplot.show()
+                pyplot.hist(tempHisto,bins=binsMe,density=True)
+                v = scipy_kernel.evaluate(binsMe)
+                pyplot.plot(binsMe,v)
+                pyplot.show()
 
             if (x_index != -10):
                 throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
