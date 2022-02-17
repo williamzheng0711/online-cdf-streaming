@@ -36,9 +36,9 @@ B_IN_MB = 1000.0*1000.0
 
 
 
-whichVideo = 6
+whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 25
+FPS = 30
 
 # Testing Set Size
 howLongIsVideoInSeconds = 270
@@ -89,8 +89,8 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 
-startPoint = np.quantile(sampleThroughputRecord, 0.0005)
-endPoint = np.quantile(sampleThroughputRecord, 0.98)
+startPoint = np.quantile(sampleThroughputRecord, 0.001)
+endPoint = np.quantile(sampleThroughputRecord, 0.991)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
@@ -118,8 +118,8 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.2
-pEpsilon = 0.2
+pGamma = 0.25
+pEpsilon = 0.15
 
 testingTimeStart = timeTrack
 
@@ -157,7 +157,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
             break 
 
         # To determine if singleFrame is skipped
-        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + (0.8)/FPS):
+        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] ):
             # if (estimatingType=="ProbabilityPredict"): 
             #     print(str(estimatingType)+  " Skipped " + str(singleFrame))
             count_skip = count_skip + 1
@@ -186,22 +186,24 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             [tempCihat_histo,tempHisto] = utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel, C_iMinus1=throughputHistoryLog[-1], quant=pEpsilon)
             
-            x_index = -10
-            if (tempCihat_histo!=-1 and len(tempHisto)>1): 
-                scipy_kernel = gaussian_kde(tempHisto)
-                # print(tempHisto)
-                cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
-                x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
-                # pyplot.hist(tempHisto,bins=binsMe,density=True)
-                # v = scipy_kernel.evaluate(binsMe)
-                # pyplot.plot(binsMe,v)
-                # pyplot.show()
+            # x_index = -10
+            # if (tempCihat_histo!=-1 and len(tempHisto)>1): 
+            #     scipy_kernel = gaussian_kde(tempHisto)
+            #     # print(tempHisto)
+            #     cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
+            #     x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
+            #     # pyplot.hist(tempHisto,bins=binsMe,density=True)
+            #     # v = scipy_kernel.evaluate(binsMe)
+            #     # pyplot.plot(binsMe,v)
+            #     # pyplot.show()
 
-            if (x_index != -10):
-                throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+            # if (x_index != -10):
+            #     throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+            throughputEstimate = (1 + pGamma/r_i) * tempCihat_histo
             suggestedFrameSize = throughputEstimate * T_i
 
-            if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1 or x_index == -10 ):
+            if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1):
+            # if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1 or x_index == -10 ):
                 suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
                         
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
@@ -260,7 +262,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 20
+number = 10
 
 mAxis = [1,16,128]
 xAxis =  np.linspace(0.000000001, 0.1 ,num=number, endpoint=True)
