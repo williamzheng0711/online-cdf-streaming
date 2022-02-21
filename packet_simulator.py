@@ -38,7 +38,7 @@ B_IN_MB = 1000.0*1000.0
 
 whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 30
+FPS = 25
 
 # Testing Set Size
 howLongIsVideoInSeconds = 270
@@ -94,7 +94,7 @@ endPoint = np.quantile(sampleThroughputRecord, 0.991)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 70
+samplePoints = 90
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -185,20 +185,22 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             [tempCihat_histo,tempHisto] = utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel, C_iMinus1=throughputHistoryLog[-1], quant=pEpsilon)
-            
+            # binsMe1 = np.array(binsMe).reshape(-1,1)
             # x_index = -10
             # if (tempCihat_histo!=-1 and len(tempHisto)>1): 
-            #     scipy_kernel = gaussian_kde(tempHisto)
-            #     # print(tempHisto)
-            #     cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
-            #     x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
-            #     # pyplot.hist(tempHisto,bins=binsMe,density=True)
-            #     # v = scipy_kernel.evaluate(binsMe)
-            #     # pyplot.plot(binsMe,v)
-            #     # pyplot.show()
+            #     scipy_kernel = KernelDensity(kernel='epanechnikov', bandwidth=binsMe1[2]-binsMe1[1]).fit(np.array(tempHisto).reshape(-1,1))
+            #     # scipy_kernel = gaussian_kde(tempHisto)
+            #     logprob = scipy_kernel.score_samples(binsMe1)
+            #     pyplot.fill_between(binsMe, np.exp(logprob), alpha=1)
+
+            #     # cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
+            #     # x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
+            #     pyplot.hist(tempHisto,bins=binsMe,density=True)
+            #     pyplot.show()
 
             # if (x_index != -10):
             #     throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+            
             throughputEstimate = (1 + pGamma/r_i) * tempCihat_histo
             suggestedFrameSize = throughputEstimate * T_i
 
@@ -262,10 +264,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 10
+number = 20
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.1 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.04 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
@@ -300,7 +302,7 @@ df = pd.DataFrame(model_trained).to_csv("da.csv",header=False,index=False)
 
 toPlot = 0
 
-for trackUsed in mAxis[0:1]:
+for trackUsed in mAxis:
     y1Axis = []
     y2Axis = []
     y3Axis = []
