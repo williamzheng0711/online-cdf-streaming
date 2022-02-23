@@ -163,22 +163,24 @@ def mleFunction2Past(binsMe,probability,past1,past2):
 def veryConfidentFunction(binsMe,probability,C_iMinus1, quant):
     histogram_establish = []
 
-    past = -1
+    past = -np.Infinity
 
     for indexPast in range(len(binsMe)-1):
-        if (binsMe[indexPast] <= C_iMinus1 and binsMe[indexPast+1] >C_iMinus1):
+        if (binsMe[indexPast] <= C_iMinus1 and binsMe[indexPast+1] >=C_iMinus1):
             past = indexPast
 
     if (past == -1): return [-1, [] ]
-    for ppValue, index in zip(probability[past], range(len(probability[past])-1)  ):
-        counter = 0
-        while (counter < ppValue):
-            counter = counter + 1
-            # histogram_establish.append(0.5*binsMe[index]+0.5*binsMe[index+1])
-            histogram_establish.append( binsMe[index] + (binsMe[index+1]-binsMe[index])*counter/ppValue )
-    
-    try: valueGiven = np.quantile(histogram_establish,quant)
-    except: valueGiven = -1
+    try:
+        for ppValue, index in zip(probability[past], range(len(probability[past])-1)  ):
+            counter = 0
+            while (counter < ppValue):
+                counter = counter + 1
+                # histogram_establish.append(0.5*binsMe[index]+0.5*binsMe[index+1])
+                histogram_establish.append( binsMe[index] + (binsMe[index+1]-binsMe[index])*counter/ppValue )
+        
+        valueGiven = np.quantile(histogram_establish,quant)
+    except: 
+        valueGiven = -1
 
     return [ valueGiven, histogram_establish]
 

@@ -9,6 +9,7 @@ from math import exp, floor, pi, sin, sqrt
 from multiprocessing.context import ForkProcess
 from operator import index, indexOf, ne
 from shutil import which
+from attr import NOTHING
 import numpy as np
 from numpy.core.numeric import False_
 from scipy.stats import laplace
@@ -31,17 +32,17 @@ from sklearn.neighbors import KernelDensity
 
 
 
-B_IN_MB = 1000.0*1000.0
+B_IN_MB = 1024*1024
 
 
 
 
-whichVideo = 5
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 25
+FPS = 60
 
 # Testing Set Size
-howLongIsVideoInSeconds = 540
+howLongIsVideoInSeconds = 200
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -55,13 +56,13 @@ initialTime = 0
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
-    with open( network_trace_dir+ str(suffixNum) + ".txt" ) as file1:
-        for line in file1:
-            parse = line.split()
+    with open( network_trace_dir+ str(suffixNum) + ".txt" ) as traceDateFile:
+        for eachLine in traceDateFile:
+            parse = eachLine.split()
             if (count==0):
                 initialTime = float(parse[0])
-            nowTime = float(parse[0]) 
-            networkEnvTime.append(nowTime - initialTime)
+            nowFileTime = float(parse[0]) 
+            networkEnvTime.append(nowFileTime - initialTime)
             networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
             count = count  +1 
 
@@ -71,7 +72,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # All things below are of our business
 
 
-ratioTrain = 0.5
+ratioTrain = 0.4
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
 
@@ -86,15 +87,18 @@ for numberA in range(0,trainingDataLen):
         sampleThroughputRecord.append( throughputLast )
         amount = 0
 
+
+
+
 # Until now, we know the empirical maximum.
 #################
-
-startPoint = np.quantile(sampleThroughputRecord, 0.001)
-endPoint = np.quantile(sampleThroughputRecord, 0.991)
+# startPoint = np.quantile(sampleThroughputRecord, 0.0005)
+startPoint = np.quantile(sampleThroughputRecord, 0.005)
+endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 90
+samplePoints = 70
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -119,17 +123,15 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 
 
 pGamma = 0.25
-pEpsilon = 0.15
+pEpsilon = 0.1
 
 testingTimeStart = timeTrack
 
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
-    frame_start_send_time = []
     throughputHistoryLog = []
     realVideoFrameSize = []
-    readVideoFrameNo = []
     probabilityModel = np.array(probability)
     toBeDeleted = pForgetList
  
@@ -158,12 +160,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
         # To determine if singleFrame is skipped
         if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] ):
-            # if (estimatingType=="ProbabilityPredict"): 
-            #     print(str(estimatingType)+  " Skipped " + str(singleFrame))
             count_skip = count_skip + 1
             continue
 
-        if (singleFrame >0 and ( runningTime <= frame_prepared_time[singleFrame])): 
+        if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
@@ -180,33 +180,30 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = (1/FPS - delta)
-        # if (estimatingType == "ProbabilityPredict"): print(estimatingType, singleFrame, T_i)
         r_i = T_i * FPS
         
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             [tempCihat_histo,tempHisto] = utils.veryConfidentFunction(binsMe=binsMe,probability=probabilityModel, C_iMinus1=throughputHistoryLog[-1], quant=pEpsilon)
-            # binsMe1 = np.array(binsMe).reshape(-1,1)
-            # x_index = -10
-            # if (tempCihat_histo!=-1 and len(tempHisto)>1): 
-            #     scipy_kernel = KernelDensity(kernel='epanechnikov', bandwidth=binsMe1[2]-binsMe1[1]).fit(np.array(tempHisto).reshape(-1,1))
-            #     # scipy_kernel = gaussian_kde(tempHisto)
-            #     logprob = scipy_kernel.score_samples(binsMe1)
-            #     pyplot.fill_between(binsMe, np.exp(logprob), alpha=1)
-
-            #     # cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
-            #     # x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
-            #     pyplot.hist(tempHisto,bins=binsMe,density=True)
-            #     pyplot.show()
-
-            # if (x_index != -10):
-            #     throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
-            
-            throughputEstimate = (1 + pGamma/r_i) * tempCihat_histo
-            suggestedFrameSize = throughputEstimate * T_i
+            x_index = -10
+            if (tempCihat_histo!=-1 and len(tempHisto)>1): 
+                scipy_kernel = gaussian_kde(tempHisto)
+                cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
+                x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
+                
+                ###################
+                # Visualization
+                # print(binsMe[x_index])
+                # pyplot.hist(tempHisto,bins=binsMe,density=True)
+                # pyplot.plot(binsMe, scipy_kernel(binsMe) )
+                # pyplot.axvline(x=binsMe[x_index], color='k', linestyle='--')                
+                # pyplot.show()
+                # Visualization Done
 
             if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1):
-            # if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1 or x_index == -10 ):
-                suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+                suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed) : len(throughputHistoryLog)])
+            elif (x_index != -10):
+                throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+                suggestedFrameSize = throughputEstimate * T_i
                         
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
@@ -226,10 +223,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         
         # We record the sent frames' information in this array.
         realVideoFrameSize.append(thisFrameSize)
-        # readVideoFrameNo.append(singleFrame)
-
-        # frame_start_send_time is the list of UPLOADER's sending time on each frame
-        frame_start_send_time.append(runningTime)
 
         uploadDuration = uploadFinishTime - runningTime
         # To update the current time clock, now we finished the old frame's transmission.
@@ -240,33 +233,37 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         throughputHistoryLog.append(throughputMeasure)
 
         if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
-                self = -1
-                past = -1
+                self = -np.Infinity
+                past = -np.Infinity
 
-                for indexSelf in range(len(binsMe)-1): 
-                    if (binsMe[indexSelf] <= throughputEstimate and binsMe[indexSelf+1] >throughputEstimate):
-                        self = indexSelf
-                    
-                for indexPast in range(len(binsMe)-1):
-                    if (binsMe[indexPast] <= throughputHistoryLog[-1] and binsMe[indexPast+1] > throughputHistoryLog[-1] ):
-                        past = indexPast
+                try:
+                    for indexSelf in range(len(binsMe)-1): 
+                        if (binsMe[indexSelf] <= throughputEstimate and binsMe[indexSelf+1] >throughputEstimate):
+                            self = indexSelf
 
-                probabilityModel[past][self] += 1
+                    for indexPast in range(len(binsMe)-1):
+                        if (binsMe[indexPast] <= throughputHistoryLog[-1] and binsMe[indexPast+1] > throughputHistoryLog[-1] ):
+                            past = indexPast
+
+                    probabilityModel[past][self] += 1
                 
-                toBeDeleted.append(past)
-                toBeDeleted.append(self)
+                    toBeDeleted.append(past)
+                    toBeDeleted.append(self)
 
-                if (forTrain == False):
-                    probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
-                    toBeDeleted = toBeDeleted[2:]
+                    if (forTrain == False):
+                        probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
+                        toBeDeleted = toBeDeleted[2:]
+                except: 
+                    # print("no index found")
+                    NOTHING
 
     return [ sum(realVideoFrameSize), probabilityModel, count_skip, minimal_framesize, len(realVideoFrameSize)]
 
 
 
-number = 60
+number = 30
 
-mAxis = [1,16,128]
+mAxis = [5,16,128]
 xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
 
 # To Train the Model
@@ -274,7 +271,7 @@ pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,
                                        binsMe = binsMe,  
                                        networkSampleFreq = 1/FPS,  
                                        traceDataSampleFreq = 1/FPS,
-                                       threshold= 900 * FPS )
+                                       threshold= 300 * FPS )
 
 model_trained = pre[0]
 forgetList = pre[1]
