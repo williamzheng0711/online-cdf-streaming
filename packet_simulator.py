@@ -41,7 +41,7 @@ whichVideo = 5
 FPS = 25
 
 # Testing Set Size
-howLongIsVideoInSeconds = 270
+howLongIsVideoInSeconds = 540
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -264,10 +264,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 20
+number = 60
 
 mAxis = [1,16,128]
-xAxis =  np.linspace(0.000000001, 0.04 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
