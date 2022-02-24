@@ -37,12 +37,12 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 2
+whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 60
+FPS = 40
 
 # Testing Set Size
-howLongIsVideoInSeconds = 200
+howLongIsVideoInSeconds = 600
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -98,7 +98,7 @@ endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 70
+samplePoints = 90
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -122,7 +122,7 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.25
+pGamma = 0.5
 pEpsilon = 0.1
 
 testingTimeStart = timeTrack
@@ -190,8 +190,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
                 cdfKDE = [scipy_kernel.integrate_box_1d(low=0,high=u) for u in binsMe]
                 x_index = utils.find_le(a = cdfKDE, x= pEpsilon)
                 
-                ###################
-                # Visualization
+            #     ###################
+            #     # Visualization
                 # print(binsMe[x_index])
                 # pyplot.hist(tempHisto,bins=binsMe,density=True)
                 # pyplot.plot(binsMe, scipy_kernel(binsMe) )
@@ -201,9 +201,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
             if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1):
                 suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed) : len(throughputHistoryLog)])
-            elif (x_index != -10):
-                throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+            else:
+                throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat_histo
                 suggestedFrameSize = throughputEstimate * T_i
+            # elif (x_index != -10):
+            #     throughputEstimate = ( 1 + pGamma/r_i ) * binsMe[x_index]
+            #     suggestedFrameSize = throughputEstimate * T_i
                         
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
@@ -271,7 +274,7 @@ pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,
                                        binsMe = binsMe,  
                                        networkSampleFreq = 1/FPS,  
                                        traceDataSampleFreq = 1/FPS,
-                                       threshold= 300 * FPS )
+                                       threshold= 900 * FPS )
 
 model_trained = pre[0]
 forgetList = pre[1]
