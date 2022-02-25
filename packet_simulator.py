@@ -37,7 +37,7 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 6
+whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 30
 
@@ -72,7 +72,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # All things below are of our business
 
 
-ratioTrain = 0.4
+ratioTrain = 0.5
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
 
@@ -176,7 +176,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         # Anyway, from now on, the uploader is ready to send singleFrame
         # In this part, we determine what is the suggestedFrameSize 
         # We initialize the guess as minimal_framesize
-        suggestedFrameSize = minimal_framesize
+        suggestedFrameSize = -np.Infinity
 
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = (1/FPS - delta)
@@ -261,10 +261,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 30
+number = 7
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.000000001, 0.1 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
