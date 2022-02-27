@@ -37,7 +37,7 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 5
+whichVideo = 4
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 30
 
@@ -93,12 +93,12 @@ for numberA in range(0,trainingDataLen):
 # Until now, we know the empirical maximum.
 #################
 # startPoint = np.quantile(sampleThroughputRecord, 0.0005)
-startPoint = np.quantile(sampleThroughputRecord, 0.005)
-endPoint = np.quantile(sampleThroughputRecord, 0.992)
+startPoint = np.quantile(sampleThroughputRecord, 0.002)
+endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 90
+samplePoints = 70
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -261,7 +261,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 7
+number = 70
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
