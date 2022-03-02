@@ -18,6 +18,7 @@ from scipy.stats.morestats import boxcox_normmax
 from sklearn.preprocessing import MinMaxScaler
 from numpy.core.fromnumeric import argmax, mean, size, var
 from numpy.lib.function_base import append, kaiser
+from sympy import false, true
 import utils as utils
 from torch.autograd import Variable
 import torch
@@ -37,12 +38,12 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 2
+whichVideo = 6
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 20
+FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 100
+howLongIsVideoInSeconds = 600
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -72,16 +73,17 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # All things below are of our business
 
 
-ratioTrain = 0.5
+ratioTrain = 0.6
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
 
 timeTrack = 0
 amount = 0
 sampleThroughputRecord = []
+anchor = 0.1
 for numberA in range(0,trainingDataLen):
     amount = amount + networkEnvPacket[numberA]
-    if ( ( networkEnvTime[numberA] - timeTrack ) > 1 / FPS ):
+    if ( ( networkEnvTime[numberA] - timeTrack ) > anchor ):
         throughputLast = amount / ( networkEnvTime[numberA] - timeTrack  )
         timeTrack = networkEnvTime[numberA]
         sampleThroughputRecord.append( throughputLast )
@@ -98,7 +100,7 @@ endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 100
+samplePoints = 70
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -122,7 +124,7 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.8
+pGamma = 0.2
 pEpsilon = 0.2
 
 testingTimeStart = timeTrack
@@ -149,34 +151,44 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
     throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
     count_skip = 0
 
+    anchor_position = runningTime
+
+    calculateTime = 0
+    calculateSize = 0
+
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        # if (singleFrame % 1000 ==0): 
-        #     print(singleFrame)
         ########################################################################################
-
+            
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
             break 
-
-        # To determine if singleFrame is skipped
-        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] ):
-            count_skip = count_skip + 1
-            continue
-
-        if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
-            # 上一次的傳輸太快了，導致新的幀還沒生成出來
-            # Then we need to wait until singleframe is generated and available to send.
-            runningTime = frame_prepared_time[singleFrame]
         
-        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
-            count_skip = count_skip + 1
-            continue
+        new_anchor = False
+
+        if (runningTime - anchor_position > anchor):
+            # print("我要開始跳了" + str(singleFrame))
+            # To determine if singleFrame is skipped
+            if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] ):
+                count_skip = count_skip + 1
+                continue
+
+            if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
+                # 上一次的傳輸太快了，導致新的幀還沒生成出來
+                # Then we need to wait until singleframe is generated and available to send.
+                runningTime = frame_prepared_time[singleFrame]
+            
+            if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
+                count_skip = count_skip + 1
+                continue
+
+        anchor_position = runningTime
+        new_anchor = true
 
         #######################################################################################
         # Anyway, from now on, the uploader is ready to send singleFrame
         # In this part, we determine what is the suggestedFrameSize 
         # We initialize the guess as minimal_framesize
-        suggestedFrameSize = -np.Infinity
+        suggestedFrameSize = 0.001
 
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = (1/FPS - delta)
@@ -192,12 +204,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
                 
             #     ###################
             #     # Visualization
-                # print(binsMe[x_index])
-                # pyplot.hist(tempHisto,bins=binsMe,density=True)
-                # pyplot.plot(binsMe, scipy_kernel(binsMe) )
-                # pyplot.axvline(x=binsMe[x_index], color='k', linestyle='--')                
-                # pyplot.show()
-                # Visualization Done
+            #     print(binsMe[x_index])
+            #     pyplot.hist(tempHisto,bins=binsMe,density=True)
+            #     pyplot.plot(binsMe, scipy_kernel(binsMe) )
+            #     pyplot.axvline(x=binsMe[x_index], color='k', linestyle='--')                
+            #     pyplot.show()
+            #     # Visualization Done
 
             if ( (singleFrame!=0 and len(tempHisto) < 2) or tempCihat_histo == -1):
                 suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed) : len(throughputHistoryLog)])
@@ -229,10 +241,16 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         runningTime = runningTime + uploadDuration 
 
         # Here we calculated the C_{i-1}
-        throughputMeasure =  thisFrameSize / uploadDuration
-        throughputHistoryLog.append(throughputMeasure)
+        calculateSize += thisFrameSize
+        calculateTime += uploadDuration
 
-        if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
+        if (new_anchor):
+            throughputMeasure =  calculateSize / calculateTime
+            throughputHistoryLog.append(throughputMeasure)
+            calculateTime = 0
+            calculateSize = 0
+
+        if (new_anchor and len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
                 self = -np.Infinity
                 past = -np.Infinity
 
@@ -261,7 +279,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 
 
 
-number = 50
+number = 20
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.000000001, 0.2 ,num=number, endpoint=True)
