@@ -37,9 +37,9 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 2
+whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 20
+FPS = 50
 
 # Testing Set Size
 howLongIsVideoInSeconds = 100
@@ -94,11 +94,11 @@ for numberA in range(0,trainingDataLen):
 #################
 # startPoint = np.quantile(sampleThroughputRecord, 0.0005)
 startPoint = np.quantile(sampleThroughputRecord, 0.002)
-endPoint = np.quantile(sampleThroughputRecord, 0.995)
+endPoint = np.quantile(sampleThroughputRecord, 0.99)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 100
+samplePoints = 70
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -232,30 +232,30 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
 
-        if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
-                self = -np.Infinity
-                past = -np.Infinity
+        # if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
+        #         self = -np.Infinity
+        #         past = -np.Infinity
 
-                try:
-                    for indexSelf in range(len(binsMe)-1): 
-                        if (binsMe[indexSelf] <= throughputEstimate and binsMe[indexSelf+1] >throughputEstimate):
-                            self = indexSelf
+        #         try:
+        #             for indexSelf in range(len(binsMe)-1): 
+        #                 if (binsMe[indexSelf] <= throughputEstimate and binsMe[indexSelf+1] >throughputEstimate):
+        #                     self = indexSelf
 
-                    for indexPast in range(len(binsMe)-1):
-                        if (binsMe[indexPast] <= throughputHistoryLog[-1] and binsMe[indexPast+1] > throughputHistoryLog[-1] ):
-                            past = indexPast
+        #             for indexPast in range(len(binsMe)-1):
+        #                 if (binsMe[indexPast] <= throughputHistoryLog[-1] and binsMe[indexPast+1] > throughputHistoryLog[-1] ):
+        #                     past = indexPast
 
-                    probabilityModel[past][self] += 1
+        #             probabilityModel[past][self] += 1
                 
-                    toBeDeleted.append(past)
-                    toBeDeleted.append(self)
+        #             toBeDeleted.append(past)
+        #             toBeDeleted.append(self)
 
-                    if (forTrain == False):
-                        probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
-                        toBeDeleted = toBeDeleted[2:]
-                except: 
-                    # print("no index found")
-                    NOTHING
+        #             if (forTrain == False):
+        #                 probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
+        #                 toBeDeleted = toBeDeleted[2:]
+        #         except: 
+        #             # print("no index found")
+        #             NOTHING
 
     return [ sum(realVideoFrameSize), probabilityModel, count_skip, minimal_framesize, len(realVideoFrameSize)]
 
