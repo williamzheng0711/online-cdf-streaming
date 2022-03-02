@@ -37,9 +37,9 @@ B_IN_MB = 1024*1024
 
 
 
-whichVideo = 4
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 30
+FPS = 20
 
 # Testing Set Size
 howLongIsVideoInSeconds = 100
@@ -98,7 +98,7 @@ endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 70
+samplePoints = 100
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -122,8 +122,8 @@ probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
 #################
 
 
-pGamma = 0.5
-pEpsilon = 0.1
+pGamma = 0.8
+pEpsilon = 0.2
 
 testingTimeStart = timeTrack
 
@@ -264,7 +264,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTr
 number = 70
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.000000001, 0.05 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000000001, 0.2 ,num=number, endpoint=True)
 
 # To Train the Model
 pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,  
