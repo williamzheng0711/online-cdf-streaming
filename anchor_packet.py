@@ -73,14 +73,14 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # All things below are of our business
 
 
-ratioTrain = 0.6
+ratioTrain = 0.8
 
 trainingDataLen =  floor(ratioTrain * len(networkEnvPacket))
 
 timeTrack = 0
 amount = 0
 sampleThroughputRecord = []
-anchor = 0.1
+anchor = (1/FPS)*10
 for numberA in range(0,trainingDataLen):
     amount = amount + networkEnvPacket[numberA]
     if ( ( networkEnvTime[numberA] - timeTrack ) > anchor ):
@@ -100,7 +100,7 @@ endPoint = np.quantile(sampleThroughputRecord, 0.995)
 MIN_TP = min(sampleThroughputRecord)
 MAX_TP = max(sampleThroughputRecord)
 
-samplePoints = 70
+samplePoints = 50
 marginalSample = 2
 
 binsMe = np.linspace(start= startPoint, stop= endPoint, num=samplePoints)
@@ -289,7 +289,7 @@ pre = utils.constructProbabilityModel( networkEnvBW = sampleThroughputRecord,
                                        binsMe = binsMe,  
                                        networkSampleFreq = 1/FPS,  
                                        traceDataSampleFreq = 1/FPS,
-                                       threshold= 600 * FPS )
+                                       threshold= 1200 * FPS )
 
 model_trained = pre[0]
 forgetList = pre[1]
