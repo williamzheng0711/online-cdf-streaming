@@ -31,7 +31,7 @@ B_IN_MB = 1024*1024
 
 whichVideo = 5
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 10
+FPS = 30
 
 # Testing Set Size
 howLongIsVideoInSeconds = 300
@@ -80,15 +80,17 @@ for numberA in range(0,trainingDataLen):
         amount = 0
 
 
-pGamma = 0.2
-pEpsilon = 0.1
+pGamma = 0.1
+pEpsilon = 0.2
 
 testingTimeStart = timeTrack
 
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
-    throughputHistoryLog = pLogCi
+    throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
+    print(len(throughputHistoryLog))
+
     realVideoFrameSize = []
  
     # This is to SKIP the training part of the data.
@@ -139,9 +141,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         r_i = T_i * FPS
         
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            # print(len(throughputHistoryLog))
-            # print("here!!!")
-            # throughputHistoryLog = throughputHistoryLog[ len(throughputHistoryLog) -1 - lenLimit : len(throughputHistoryLog)-1]
+            throughputHistoryLog = throughputHistoryLog[ len(throughputHistoryLog) -1 - lenLimit : len(throughputHistoryLog)]
             C_iMinus1=throughputHistoryLog[-1]
             subLongSeq = [throughputHistoryLog[i+1] for _, i in zip(throughputHistoryLog,range(len(throughputHistoryLog))) 
                 if ( (abs((throughputHistoryLog[i]-C_iMinus1)/C_iMinus1)< 0.05) and i<len(throughputHistoryLog)-1 ) ]
@@ -181,9 +181,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
 
-        # if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
-        #     if (len(print(len(throughputHistoryLog))) > lenLimit ):
-        #         throughputHistoryLog = throughputHistoryLog[1:]
     
 
 
@@ -191,14 +188,14 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 100
+number = 20
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.0000001, 0.2 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.2 ,num=number, endpoint=True)
 
 
-lenLimit = 600*FPS
-bigHistorySequence = sampleThroughputRecord[0:600*FPS]
+lenLimit = 300*FPS
+bigHistorySequence = sampleThroughputRecord[0:lenLimit]
 print(len(bigHistorySequence))
 
 
