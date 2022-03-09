@@ -29,7 +29,7 @@ from sklearn.neighbors import KernelDensity
 
 B_IN_MB = 1024*1024
 
-whichVideo = 5
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 30
 
@@ -194,7 +194,7 @@ mAxis = [5,16,128]
 xAxis =  np.linspace(0.005, 0.2 ,num=number, endpoint=True)
 
 
-lenLimit = 300*FPS
+lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[0:lenLimit]
 print(len(bigHistorySequence))
 
