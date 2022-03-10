@@ -34,7 +34,7 @@ whichVideo = 2
 FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 300
+howLongIsVideoInSeconds = 600
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -80,7 +80,7 @@ for numberA in range(0,trainingDataLen):
         amount = 0
 
 
-pGamma = 0.1
+pGamma = 0.2
 pEpsilon = 0.2
 
 testingTimeStart = timeTrack
@@ -188,13 +188,13 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 20
+number = 40
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.2 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.12 ,num=number, endpoint=True)
 
 
-lenLimit = 600*FPS
+lenLimit = 300*FPS
 bigHistorySequence = sampleThroughputRecord[0:lenLimit]
 print(len(bigHistorySequence))
 
