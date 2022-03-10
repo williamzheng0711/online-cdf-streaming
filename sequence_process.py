@@ -188,10 +188,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 40
+number = 80
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.12 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.16 ,num=number, endpoint=True)
 
 
 lenLimit = 300*FPS
