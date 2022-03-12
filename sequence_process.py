@@ -30,9 +30,9 @@ from sklearn.neighbors import KernelDensity
 
 B_IN_MB = 1024*1024
 
-whichVideo = 6
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 30
+FPS = 15
 
 # Testing Set Size
 howLongIsVideoInSeconds = 600
@@ -81,8 +81,8 @@ for numberA in range(0,trainingDataLen):
         amount = 0
 
 
-pGamma = 0
-pEpsilon = 0.15
+pGamma = 0.5
+pEpsilon = 0.2
 
 testingTimeStart = timeTrack
 
@@ -117,11 +117,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
             break 
 
-        # To determine if singleFrame is skipped
-        # if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + pGamma/FPS ):
-        #     count_skip = count_skip + 1
-        #     continue
-
         if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
@@ -145,15 +140,17 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             throughputHistoryLog = throughputHistoryLog[ len(throughputHistoryLog) -1 - lenLimit : len(throughputHistoryLog)]
             C_iMinus1=throughputHistoryLog[-1]
             subLongSeq = [throughputHistoryLog[i+1] for _, i in zip(throughputHistoryLog,range(len(throughputHistoryLog))) 
-                if ( (abs((throughputHistoryLog[i]-C_iMinus1)/C_iMinus1)< 0.05) and i<len(throughputHistoryLog)-1 ) ]
+                if ( (abs((throughputHistoryLog[i]-C_iMinus1))/C_iMinus1< 0.1 ) and  i<len(throughputHistoryLog)-1   ) ]
             try: 
-                tempCihat = quantile(subLongSeq, pEpsilon)
-                throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
-                suggestedFrameSize = throughputEstimate * T_i
-                # pyplot.hist(subLongSeq, bins=80)
-                # pyplot.show()
+                if (len(subLongSeq)>15):
+                    tempCihat = quantile(subLongSeq, pEpsilon)
+                    throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
+                    suggestedFrameSize = throughputEstimate * T_i
+                    # pyplot.hist(subLongSeq)
+                    # pyplot.show()
+                else:
+                    suggestedFrameSize = minimal_framesize
             except:
-                # suggestedFrameSize =  T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-16,): len(throughputHistoryLog) ])
                 suggestedFrameSize = minimal_framesize
      
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
@@ -188,12 +185,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 150
+number = 50
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.1 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.15 ,num=number, endpoint=True)
 
-lenLimit = 300*FPS
+lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[0:lenLimit]
 
 
