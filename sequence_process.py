@@ -82,7 +82,7 @@ for numberA in range(0,trainingDataLen):
 
 
 pGamma = 0.5
-pEpsilon = 0.2
+pEpsilon = 0.1
 
 testingTimeStart = timeTrack
 
@@ -155,6 +155,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
      
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+        elif (estimatingType == "MinimalFrame"):
+            suggestedFrameSize = minimal_framesize
 
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
@@ -185,10 +187,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 50
+number = 100
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.15 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.3 ,num=number, endpoint=True)
 
 lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[0:lenLimit]
@@ -197,13 +199,21 @@ bigHistorySequence = sampleThroughputRecord[0:lenLimit]
 ecmLossRateArray = []
 ecmTotalSizeArray = []
 
+minimalLossRateArray = []
+minimalSizeArray = []
+
 for x_for_b in xAxis:
     b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    m = uploadProcess('dummyUsername2', x_for_b , "MinimalFrame", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
     count_skipB = b[2]
+    count_skipM = m[2]
     ecmLossRateArray.append(count_skipB/(howLongIsVideoInSeconds*FPS))
     ecmTotalSizeArray.append(b[0])
-    print("OurMethod: " + str(b[0]) + " " + str(count_skipB/(howLongIsVideoInSeconds*FPS)))
+    minimalLossRateArray.append(count_skipM/(howLongIsVideoInSeconds*FPS))
+    minimalSizeArray.append(m[0])
 
+    print("OurMethod: " + str(b[0]) + " " + str(count_skipB/(howLongIsVideoInSeconds*FPS)))
+    print("Minimal: " + str(m[0]) + " " + str(count_skipM/(howLongIsVideoInSeconds*FPS)))
 
 amLossRateMatrix = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
 amTotalSizeMatrix  = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
@@ -224,8 +234,9 @@ pyplot.ylabel("Loss Rate")
 pyplot.plot(xAxis, ecmLossRateArray, '-s', color='blue', markersize=1, linewidth=1)
 for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amLossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+pyplot.plot(xAxis, minimalLossRateArray, '-s', color='black', markersize=1, linewidth=1)
 AMLegendLossRate = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
-pyplot.legend( ["Empirical Condt'l"] + AMLegendLossRate, loc="best")
+pyplot.legend( ["Empirical Condt'l"] + AMLegendLossRate + ["Fixed as Minimal"], loc="best")
 
 
 pyplot.subplot( 1,2,2)
@@ -234,7 +245,8 @@ pyplot.ylabel("Data sent in" + str(howLongIsVideoInSeconds) +" sec" )
 pyplot.plot(xAxis, ecmTotalSizeArray, '-s', color='blue',markersize=1, linewidth=1)
 for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amTotalSizeMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+pyplot.plot(xAxis, minimalSizeArray, '-s', color='black',markersize=1, linewidth=1)
 AMLegendTotalSize = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
-pyplot.legend( ["Empirical Condt'l"] + AMLegendTotalSize, loc="best")
+pyplot.legend( ["Empirical Condt'l"] + AMLegendTotalSize + ["Fixed as Minimal"], loc="best")
 
 pyplot.show()
