@@ -8,6 +8,7 @@ import csv
 from math import exp, floor, pi, sin, sqrt
 from multiprocessing.context import ForkProcess
 from operator import index, indexOf, ne
+from matplotlib.axis import Axis
 import numpy as np
 from numpy.core.numeric import False_
 from scipy.stats import laplace
@@ -29,7 +30,7 @@ from sklearn.neighbors import KernelDensity
 
 B_IN_MB = 1024*1024
 
-whichVideo = 2
+whichVideo = 6
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 30
 
@@ -80,8 +81,8 @@ for numberA in range(0,trainingDataLen):
         amount = 0
 
 
-pGamma = 0.2
-pEpsilon = 0.2
+pGamma = 0
+pEpsilon = 0.15
 
 testingTimeStart = timeTrack
 
@@ -89,7 +90,7 @@ testingTimeStart = timeTrack
 def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
     throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
-    print(len(throughputHistoryLog))
+    # print(len(throughputHistoryLog))
 
     realVideoFrameSize = []
  
@@ -117,16 +118,16 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             break 
 
         # To determine if singleFrame is skipped
-        if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] ):
-            count_skip = count_skip + 1
-            continue
+        # if ( singleFrame < howLongIsVideoInSeconds * FPS - 1 and runningTime > frame_prepared_time[singleFrame + 1] + pGamma/FPS ):
+        #     count_skip = count_skip + 1
+        #     continue
 
         if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
         
-        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
+        if (runningTime - frame_prepared_time[singleFrame] > (1+pGamma)/FPS):
             count_skip = count_skip + 1
             continue
 
@@ -152,13 +153,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                 # pyplot.hist(subLongSeq, bins=80)
                 # pyplot.show()
             except:
-                suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed) : len(throughputHistoryLog)])
+                # suggestedFrameSize =  T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-16,): len(throughputHistoryLog) ])
+                suggestedFrameSize = minimal_framesize
      
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
-        # need to judge in my new rule
-        # if suggested value < minimal size, then we discard the frame
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
         # Until now, the suggestedFrameSize is fixed.
@@ -188,61 +188,56 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 80
+number = 150
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.16 ,num=number, endpoint=True)
-
+xAxis =  np.linspace(0.005, 0.1 ,num=number, endpoint=True)
 
 lenLimit = 300*FPS
 bigHistorySequence = sampleThroughputRecord[0:lenLimit]
-print(len(bigHistorySequence))
 
 
-toPlot = 0
+ecmLossRateArray = []
+ecmTotalSizeArray = []
 
-for trackUsed in mAxis:
-    y1Axis = []
-    y2Axis = []
-    y3Axis = []
-    z1Axis = []
-    z2Axis = []
+for x_for_b in xAxis:
+    b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    count_skipB = b[2]
+    ecmLossRateArray.append(count_skipB/(howLongIsVideoInSeconds*FPS))
+    ecmTotalSizeArray.append(b[0])
+    print("OurMethod: " + str(b[0]) + " " + str(count_skipB/(howLongIsVideoInSeconds*FPS)))
 
-    for x in xAxis:
+
+amLossRateMatrix = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
+amTotalSizeMatrix  = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
+for trackUsed, ix in zip(mAxis,range(len(mAxis))):
+    for x, iy in zip(xAxis, range(len(xAxis))):
         a = uploadProcess('dummyUsername1', x , "A.M.", pLogCi=bigHistorySequence, forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
-        b = uploadProcess('dummyUsername2', x , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
         count_skipA = a[2]
-        count_skipB = b[2]
-        y1Axis.append(count_skipA/(howLongIsVideoInSeconds*FPS))
-        y2Axis.append(count_skipB/(howLongIsVideoInSeconds*FPS))
-
-        z1Axis.append(a[0])
-        z2Axis.append(b[0])
-
+        amLossRateMatrix[ix][iy] = count_skipA/(howLongIsVideoInSeconds*FPS)
+        amTotalSizeMatrix[ix][iy] = a[0]
         print("A.M.(M="+str(trackUsed)+"): " +  str(a[0]) + " " + str(count_skipA/(howLongIsVideoInSeconds*FPS)) + " with min-size: " + str(a[3]) )
-        print("OurMethod: " + str(b[0]) + " " + str(count_skipB/(howLongIsVideoInSeconds*FPS)))
 
 
-    # print("Mean of this network: " + str(mean(networkEnvTP)))
-    # print("Var of ~: " + str(var(networkEnvTP)))
+colorList = ["red", "orange", "purple"]
+
+pyplot.subplot( 1,2,1)
+pyplot.xlabel("Minimal Each Frame Size (in MB)")
+pyplot.ylabel("Loss Rate")
+pyplot.plot(xAxis, ecmLossRateArray, '-s', color='blue', markersize=1, linewidth=1)
+for ix in range(len(mAxis)):
+    pyplot.plot(xAxis, amLossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+AMLegendLossRate = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
+pyplot.legend( ["Empirical Condt'l"] + AMLegendLossRate, loc="best")
 
 
-    toPlot += 1
-    pyplot.subplot( len(mAxis),2,toPlot)
-    pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Loss Rate")
-    pyplot.plot(xAxis, y2Axis, '-s', color='blue', markersize=1, linewidth=1)
-    pyplot.plot(xAxis, y1Axis, '-s', color='red', markersize=1, linewidth=1)
-    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc="best")
-
-    toPlot += 1
-    pyplot.subplot( len(mAxis),2,toPlot)
-    pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Data sent in" + str(howLongIsVideoInSeconds) +" sec" )
-    pyplot.plot(xAxis, z2Axis, '-s', color='blue',
-                markersize=1, linewidth=1)
-    pyplot.plot(xAxis, z1Axis, '-s', color='red',
-                markersize=1, linewidth=1)
-    pyplot.legend( ["Empirical Condt'l", "A.M. M=" + str(trackUsed),], loc="best")
+pyplot.subplot( 1,2,2)
+pyplot.xlabel("Minimal Each Frame Size (in MB)")
+pyplot.ylabel("Data sent in" + str(howLongIsVideoInSeconds) +" sec" )
+pyplot.plot(xAxis, ecmTotalSizeArray, '-s', color='blue',markersize=1, linewidth=1)
+for ix in range(len(mAxis)):
+    pyplot.plot(xAxis, amTotalSizeMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+AMLegendTotalSize = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
+pyplot.legend( ["Empirical Condt'l"] + AMLegendTotalSize, loc="best")
 
 pyplot.show()
