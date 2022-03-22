@@ -144,13 +144,18 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         #     print("hahahah")
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             C_iMinus1=throughputHistoryLog[-1]
-            subLongSeq = [throughputHistoryLog[i+1] for _, i in zip(throughputHistoryLog,range(len(throughputHistoryLog))) if ( (abs((throughputHistoryLog[i]-C_iMinus1))/C_iMinus1< 0.1 ) and  i<len(throughputHistoryLog)-1   ) ]
+            subLongSeq = [
+                throughputHistoryLog[i+1] 
+                for _, i in 
+                    zip(throughputHistoryLog,range(len(throughputHistoryLog))) 
+                if ( (abs((throughputHistoryLog[i]-C_iMinus1))/C_iMinus1< 0.05 ) and  i<len(throughputHistoryLog)-1   ) 
+                ]
             try: 
                 if (len(subLongSeq)>15):
                     tempCihat = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
                     suggestedFrameSize = throughputEstimate * T_i
-                    # pyplot.hist(subLongSeq)
+                    # pyplot.hist(subLongSeq, bins=100)
                     # pyplot.show()
                 else:
                     suggestedFrameSize = minimal_framesize
@@ -201,7 +206,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 20
+number = 50
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.005, 0.15 ,num=number, endpoint=True)
