@@ -169,13 +169,13 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         elif (estimatingType == "Marginal"):
             suggestedFrameSize = quantile(throughputHistoryLog, pEpsilon) * T_i
         elif (estimatingType == "OLS"):
-            pastDataUse = 16
+            pastDataUse = 30
             explantoryRVs = throughputHistoryLog[ len(throughputHistoryLog)-pastDataUse : len(throughputHistoryLog)][::-1]
             explantoryRVs.insert(0,1)
-            coef = MLR.MLS(timeSeries= throughputHistoryLog, predictorsNum= pastDataUse, miniTrainingSize= 25)
+            coef = MLR.MLS(timeSeries= throughputHistoryLog, predictorsNum= pastDataUse, miniTrainingSize= 10)
             C_i_guess_MLR = np.array(explantoryRVs).dot(coef)  
             suggestedFrameSize = C_i_guess_MLR * T_i
-            # print(suggestedFrameSize)
+            # print("suggestedFrameSize of OLS: " + str(suggestedFrameSize))
 
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
@@ -187,11 +187,13 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                                                                         packet_level_data= networkEnvPacket,
                                                                         packet_level_timestamp= networkEnvTime,
                                                                         framesize= thisFrameSize)
-        
+
         # We record the sent frames' information in this array.
-        realVideoFrameSize.append(thisFrameSize)
+        if (uploadFinishTime<=howLongIsVideoInSeconds + testingTimeStart):
+            realVideoFrameSize.append(thisFrameSize)
 
         uploadDuration = uploadFinishTime - runningTime
+        # print(uploadDuration)
         # To update the current time clock, now we finished the old frame's transmission.
         runningTime = runningTime + uploadDuration 
 
@@ -206,7 +208,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 50
+number = 20
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.005, 0.15 ,num=number, endpoint=True)
@@ -228,6 +230,12 @@ OLSpredLossRateArray = []
 OLSpredSizeArray = []
 
 for x_for_b in xAxis:
+    OLSpred = uploadProcess('dummyUsername2', x_for_b , "OLS", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    count_OLS = OLSpred[2]
+    OLSpredLossRateArray.append(count_OLS/(howLongIsVideoInSeconds*FPS))
+    OLSpredSizeArray.append(OLSpred[0])
+    print("OLS: " + str(OLSpred[0]) + " " + str(count_OLS/(howLongIsVideoInSeconds*FPS)))
+
     b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
     count_skipB = b[2]
     ecmLossRateArray.append(count_skipB/(howLongIsVideoInSeconds*FPS))
@@ -245,12 +253,6 @@ for x_for_b in xAxis:
     marginalProbLossRateArray.append(count_skipMarginal/(howLongIsVideoInSeconds*FPS))
     marginalProbSizeArray.append(marginal[0])
     print("Marginal: " + str(marginal[0]) + " " + str(count_skipMarginal/(howLongIsVideoInSeconds*FPS)))
-
-    # OLSpred = uploadProcess('dummyUsername2', x_for_b , "OLS", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
-    # count_OLS = OLSpred[2]
-    # OLSpredLossRateArray.append(count_OLS/(howLongIsVideoInSeconds*FPS))
-    # OLSpredSizeArray.append(OLSpred[0])
-    # print("OLS: " + str(OLSpred[0]) + " " + str(count_OLS/(howLongIsVideoInSeconds*FPS)))
 
     print("----------------------------")
 
@@ -276,8 +278,14 @@ for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amLossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
 pyplot.plot(xAxis, marginalProbLossRateArray, '-s', color="green", markersize=1, linewidth=1 )
 pyplot.plot(xAxis, minimalLossRateArray, '-s', color='black', markersize=1, linewidth=1)
+pyplot.plot(xAxis, OLSpredLossRateArray,'-s', color='plum', markersize=1, linewidth=1)
 AMLegendLossRate = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
-pyplot.legend( ["Empirical Condt'l"] + AMLegendLossRate + ["Marginal Prob."] + ["Fixed as Minimal"], loc="best")
+pyplot.legend( ["Empirical Condt'l"] + 
+                AMLegendLossRate + 
+                ["Marginal Prob."] + 
+                ["Fixed as Minimal"]+
+                ["OLS"]
+                , loc="best")
 
 
 pyplot.subplot( 1,2,2)
@@ -288,7 +296,13 @@ for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amTotalSizeMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
 pyplot.plot(xAxis, marginalProbSizeArray, '-s', color='green',markersize=1, linewidth=1)
 pyplot.plot(xAxis, minimalSizeArray, '-s', color='black',markersize=1, linewidth=1)
+pyplot.plot(xAxis, OLSpredSizeArray, '-s', color='plum', markersize=1, linewidth=1)
 AMLegendTotalSize = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
-pyplot.legend( ["Empirical Condt'l"] + AMLegendTotalSize + ["Marginal Prob."]+ ["Fixed as Minimal"], loc="best")
+pyplot.legend( ["Empirical Condt'l"] + 
+                AMLegendTotalSize + 
+                ["Marginal Prob."]+ 
+                ["Fixed as Minimal"]+
+                ["OLS"], 
+                loc="best")
 
 pyplot.show()
