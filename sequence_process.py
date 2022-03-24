@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 6
+whichVideo = 2
 # Note that FPS >= 1/networkSamplingInterval
 FPS = 15
 
@@ -110,6 +110,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
     throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
     count_skip = 0
 
+    accumulated_frame_sizes = 0
+    accumulated_time = 0
+
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
         # if (singleFrame % 1000 ==0): 
@@ -124,7 +127,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
         
-        if (runningTime - frame_prepared_time[singleFrame] > (1+pGamma)/FPS):
+        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
             count_skip = count_skip + 1
             continue
 
@@ -139,42 +142,64 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         r_i = T_i * FPS
         
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-        # if (singleFrame==0):
-        #     print(len(throughputHistoryLog))
-        #     print("hahahah")
+        meanC_i = mean(throughputHistoryLog)
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            C_iMinus1=throughputHistoryLog[-1]
+            movingAvgNumber = 3
+            try:
+                adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-movingAvgNumber,): len(realVideoFrameSize)])
+                adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-movingAvgNumber,): len(realVideoFrameSize)], 
+                                            throughputHistoryLog[ max(0,len(throughputHistoryLog)-movingAvgNumber,): len(throughputHistoryLog)]) ]
+                # print(adjustedAM_Deno)
+                C_iMinus1 = adjustedAM_Nume/sum(adjustedAM_Deno)
+            except:
+                C_iMinus1 = throughputHistoryLog[-1]
             subLongSeq = [
                 throughputHistoryLog[i+1] 
                 for _, i in 
                     zip(throughputHistoryLog,range(len(throughputHistoryLog))) 
-                if ( (abs((throughputHistoryLog[i]-C_iMinus1))/C_iMinus1< 0.05 ) and  i<len(throughputHistoryLog)-1   ) 
+                if ( (abs((throughputHistoryLog[i]-C_iMinus1))/meanC_i< 0.01 ) and  i<len(throughputHistoryLog)-1   ) 
                 ]
+                
             try: 
-                if (len(subLongSeq)>15):
+                if (len(subLongSeq)>20):
                     tempCihat = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
                     suggestedFrameSize = throughputEstimate * T_i
                     # pyplot.hist(subLongSeq, bins=100)
                     # pyplot.show()
+                    # print(throughputEstimate)
                 else:
-                    suggestedFrameSize = minimal_framesize
+                    pTrackUsed = 5
+                    adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+                    adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+                                            throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+                    # print(adjustedAM_Deno)
+                    C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+                    suggestedFrameSize = T_i * C_i_hat_AM
             except:
                 suggestedFrameSize = minimal_framesize
      
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
-            suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+            try:
+                adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+                adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+                                        throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+                # print(adjustedAM_Deno)
+                C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+                suggestedFrameSize = T_i * C_i_hat_AM
+            except:
+                suggestedFrameSize = T_i * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         elif (estimatingType == "Marginal"):
             suggestedFrameSize = quantile(throughputHistoryLog, pEpsilon) * T_i
-        elif (estimatingType == "OLS"):
-            pastDataUse = 30
-            explantoryRVs = throughputHistoryLog[ len(throughputHistoryLog)-pastDataUse : len(throughputHistoryLog)][::-1]
-            explantoryRVs.insert(0,1)
-            coef = MLR.MLS(timeSeries= throughputHistoryLog, predictorsNum= pastDataUse, miniTrainingSize= 10)
-            C_i_guess_MLR = np.array(explantoryRVs).dot(coef)  
-            suggestedFrameSize = C_i_guess_MLR * T_i
+        # elif (estimatingType == "OLS"):
+        #     pastDataUse = 30
+        #     explantoryRVs = throughputHistoryLog[ len(throughputHistoryLog)-pastDataUse : len(throughputHistoryLog)][::-1]
+        #     explantoryRVs.insert(0,1)
+        #     coef = MLR.MLS(timeSeries= throughputHistoryLog, predictorsNum= pastDataUse, miniTrainingSize= 10)
+        #     C_i_guess_MLR = np.array(explantoryRVs).dot(coef)  
+        #     suggestedFrameSize = C_i_guess_MLR * T_i
             # print("suggestedFrameSize of OLS: " + str(suggestedFrameSize))
 
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
@@ -193,16 +218,20 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             realVideoFrameSize.append(thisFrameSize)
 
         uploadDuration = uploadFinishTime - runningTime
-        # print(uploadDuration)
-        # To update the current time clock, now we finished the old frame's transmission.
         runningTime = runningTime + uploadDuration 
 
+        # accumulated_time += uploadDuration
         # Here we calculated the C_{i-1}
+        # if (uploadDuration >= 0.5/FPS):
+        #     throughputMeasure =  thisFrameSize / uploadDuration
+        #     throughputHistoryLog.append(throughputMeasure)
+        #     accumulated_frame_sizes = 0
+        #     accumulated_time = 0
+        # else:
+        #     accumulated_frame_sizes += thisFrameSize
+        #     accumulated_time += uploadDuration
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
-
-    
-
 
     return [ sum(realVideoFrameSize), [], count_skip, minimal_framesize, len(realVideoFrameSize)]
 
@@ -211,7 +240,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 number = 20
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.15 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.005, 0.2 ,num=number, endpoint=True)
 
 lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
@@ -230,11 +259,11 @@ OLSpredLossRateArray = []
 OLSpredSizeArray = []
 
 for x_for_b in xAxis:
-    OLSpred = uploadProcess('dummyUsername2', x_for_b , "OLS", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
-    count_OLS = OLSpred[2]
-    OLSpredLossRateArray.append(count_OLS/(howLongIsVideoInSeconds*FPS))
-    OLSpredSizeArray.append(OLSpred[0])
-    print("OLS: " + str(OLSpred[0]) + " " + str(count_OLS/(howLongIsVideoInSeconds*FPS)))
+    # OLSpred = uploadProcess('dummyUsername2', x_for_b , "OLS", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    # count_OLS = OLSpred[2]
+    # OLSpredLossRateArray.append(count_OLS/(howLongIsVideoInSeconds*FPS))
+    # OLSpredSizeArray.append(OLSpred[0])
+    # print("OLS: " + str(OLSpred[0]) + " " + str(count_OLS/(howLongIsVideoInSeconds*FPS)))
 
     b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
     count_skipB = b[2]
@@ -256,7 +285,6 @@ for x_for_b in xAxis:
 
     print("----------------------------")
 
-
 amLossRateMatrix = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
 amTotalSizeMatrix  = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
 for trackUsed, ix in zip(mAxis,range(len(mAxis))):
@@ -266,6 +294,7 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
         amLossRateMatrix[ix][iy] = count_skipA/(howLongIsVideoInSeconds*FPS)
         amTotalSizeMatrix[ix][iy] = a[0]
         print("A.M.(M="+str(trackUsed)+"): " +  str(a[0]) + " " + str(count_skipA/(howLongIsVideoInSeconds*FPS)) + " with min-size: " + str(a[3]) )
+
 
 
 colorList = ["red", "orange", "purple"]
@@ -278,13 +307,13 @@ for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amLossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
 pyplot.plot(xAxis, marginalProbLossRateArray, '-s', color="green", markersize=1, linewidth=1 )
 pyplot.plot(xAxis, minimalLossRateArray, '-s', color='black', markersize=1, linewidth=1)
-pyplot.plot(xAxis, OLSpredLossRateArray,'-s', color='plum', markersize=1, linewidth=1)
+# pyplot.plot(xAxis, OLSpredLossRateArray,'-s', color='plum', markersize=1, linewidth=1)
 AMLegendLossRate = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.legend( ["Empirical Condt'l"] + 
                 AMLegendLossRate + 
                 ["Marginal Prob."] + 
-                ["Fixed as Minimal"]+
-                ["OLS"]
+                ["Fixed as Minimal"]
+                # +["OLS"]
                 , loc="best")
 
 
@@ -296,13 +325,13 @@ for ix in range(len(mAxis)):
     pyplot.plot(xAxis, amTotalSizeMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
 pyplot.plot(xAxis, marginalProbSizeArray, '-s', color='green',markersize=1, linewidth=1)
 pyplot.plot(xAxis, minimalSizeArray, '-s', color='black',markersize=1, linewidth=1)
-pyplot.plot(xAxis, OLSpredSizeArray, '-s', color='plum', markersize=1, linewidth=1)
+# pyplot.plot(xAxis, OLSpredSizeArray, '-s', color='plum', markersize=1, linewidth=1)
 AMLegendTotalSize = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.legend( ["Empirical Condt'l"] + 
                 AMLegendTotalSize + 
                 ["Marginal Prob."]+ 
-                ["Fixed as Minimal"]+
-                ["OLS"], 
-                loc="best")
+                ["Fixed as Minimal"]
+                # +["OLS"], 
+                ,loc="best")
 
 pyplot.show()
