@@ -32,11 +32,10 @@ import multiLinreg as MLR
 B_IN_MB = 1024*1024
 
 whichVideo = 6
-# Note that FPS >= 1/networkSamplingInterval
-FPS = 30
+FPS = 60
 
 # Testing Set Size
-howLongIsVideoInSeconds = 300
+howLongIsVideoInSeconds = 120
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -47,6 +46,9 @@ networkEnvTime = []
 networkEnvPacket= []
 count = 0
 initialTime = 0
+packet_level_integral_C = []
+packet_level_time = []
+packet_level_integral_C.append(0)
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -58,6 +60,8 @@ for suffixNum in range(whichVideo,whichVideo+1):
             nowFileTime = float(parse[0]) 
             networkEnvTime.append(nowFileTime - initialTime)
             networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
+            packet_level_integral_C.append(networkEnvPacket[-1]+packet_level_integral_C[-1])
+            packet_level_time.append(nowFileTime - initialTime)
             count = count  +1 
 
 # All things above are  "environment"'s initialization, 
@@ -82,8 +86,8 @@ for numberA in range(0,trainingDataLen):
         amount = 0
 
 
-pGamma = 0.5
-pEpsilon = 0.1
+pGamma = 0.2
+pEpsilon = 0.2
 
 testingTimeStart = timeTrack
 
@@ -108,11 +112,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
     throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
     count_skip = 0
 
-    packet_level_integral_C = []
-    packet_level_time = []
-    packet_level_integral_C.append(0)
-    packet_level_time.append(runningTime)
-
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
         # if (singleFrame % 1000 ==0): 
@@ -122,6 +121,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
             break 
 
+        
         if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
@@ -144,41 +144,56 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         r_i = T_i * FPS
         
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-        lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
         # if (singleFrame == 100):
         #     print(lookBackwardHistogramC)
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             # Now it's runningTime, we will check all values of F(rT)-F(rT-1/FPS)
-            assemble_list = throughputHistoryLog + lookBackwardHistogramC
+            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,
+                                                                        timeSeq=packet_level_time,
+                                                                        currentTime=runningTime, 
+                                                                        lenLimit = lenLimit) 
+            assemble_list = lookBackwardHistogramC
             decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
 
-            C_iMinus1 = decision_list[-1]
-            subLongSeq = [
-                decision_list[i+1] 
-                for _, i in 
-                    zip(decision_list,range(len(decision_list))) 
-                if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
-                ]
-                
-            try: 
-                if (len(subLongSeq)>30):
-                    tempCihat = quantile(subLongSeq, pEpsilon)
-                    throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
-                    suggestedFrameSize = throughputEstimate * T_i
-                    # print(runningTime - testingTimeStart)
-                    # if (runningTime - testingTimeStart> 200):
-                    #     pyplot.hist(subLongSeq, bins=40)
-                    #     pyplot.show()
-                else:
+            try:
+                C_iMinus1 = decision_list[-1]
+                subLongSeq = [
+                    decision_list[i+1] 
+                    for _, i in 
+                        zip(decision_list,range(len(decision_list))) 
+                    if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
+                    ]
+                    
+                try: 
+                    if (len(subLongSeq)>30):
+                        tempCihat = quantile(subLongSeq, pEpsilon)
+                        throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
+                        suggestedFrameSize = throughputEstimate * T_i
+                        print(runningTime - testingTimeStart)
+                        if (runningTime - testingTimeStart> 0):
+                            pyplot.hist(subLongSeq, bins=100)
+                            pyplot.show()
+                    else:
+                        pTrackUsed = 5
+                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+                        # print(adjustedAM_Deno)
+                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+                        suggestedFrameSize = T_i * C_i_hat_AM
+                except:
+                    suggestedFrameSize = minimal_framesize
+            except:
+                try:
                     pTrackUsed = 5
                     adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
                     adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                            throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+                                                    throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
                     # print(adjustedAM_Deno)
                     C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
                     suggestedFrameSize = T_i * C_i_hat_AM
-            except:
-                suggestedFrameSize = minimal_framesize
+                except:
+                    suggestedFrameSize = minimal_framesize
      
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
@@ -193,6 +208,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         elif (estimatingType == "Marginal"):
+            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
             assemble_list = throughputHistoryLog + lookBackwardHistogramC
             decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
             suggestedFrameSize = quantile(decision_list, pEpsilon) * T_i
@@ -244,10 +260,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 number = 5
 
-mAxis = [5,16,128]
-xAxis =  np.linspace(0.000005, 0.15 ,num=number, endpoint=True)
+mAxis = [5,16]
+xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
 
-lenLimit = 180*FPS
+lenLimit = 60*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 
