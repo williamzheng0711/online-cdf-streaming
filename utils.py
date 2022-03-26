@@ -1,4 +1,5 @@
 import math
+from unittest import result
 from warnings import catch_warnings
 from matplotlib.pyplot import summer
 from numpy.core.fromnumeric import argmax, partition
@@ -64,16 +65,9 @@ def find_gt_index(a, x):
         return i
     raise ValueError
 
-def find_le(a, x):
-    'Find rightmost value less than or equal to x'
-    i = bisect.bisect_right(a, x)
-    if i:
-        return i-1
-    return -1
 
-
-def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize ):
-    # shift = next(x for x, val in enumerate(packet_level_timestamp) if val > runningTime) 
+def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize,
+                                            packet_level_integral_C, packet_level_time ):
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     i = 0 
 
@@ -81,18 +75,19 @@ def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packe
         if (i == 0):
             i = 1
             s_temp = framesize - packet_level_data[shift]
-            # print(s_temp)
+            packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+            packet_level_time.append(packet_level_timestamp[shift])
             if (s_temp<=0):
                 t_out = packet_level_timestamp[shift]
-                return t_out
+                return [t_out, packet_level_integral_C, packet_level_time]
             framesize = s_temp
         else: 
-            # print(shift)
             s_temp = framesize - packet_level_data[shift]
-            # print(s_temp)
+            packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+            packet_level_time.append(packet_level_timestamp[shift])
             if (s_temp<=0): 
                 t_out = packet_level_timestamp[shift]
-                return t_out
+                return [t_out,packet_level_integral_C, packet_level_time]
             framesize = s_temp
         shift = shift +1
 
@@ -234,30 +229,41 @@ def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceData
     
         return [model,tobeDeleted]
 
+def find_le_index(a, x):
+    'Find rightmost value less than or equal to x'
+    i = bisect.bisect_right(a, x)
+    if i:
+        return a[i-1]
+    raise ValueError
+
+def find_ge_index(a, x):
+    'Find leftmost item greater than or equal to x'
+    i = bisect.bisect_left(a, x)
+    if i != len(a):
+        return i
+    raise ValueError
+
+def find_lt_index(a, x):
+    'Find rightmost value less than x'
+    i = bisect.bisect_left(a, x)
+    if i:
+        return i-1
+    raise ValueError
+
+def F(pilotTime, int_C, timeSeq):
+    lt_index = find_lt_index(timeSeq,pilotTime)
+    ge_index = lt_index + 1
+    FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
+    return FValue
 
 
-def decideSamplingInterval(index):
-#     8 is 0.25s interval
-# 9 is 0.01s interval
-# 10 is 0.1s interval 
-# 13 is 0.02s interval
-
-
-# The followings are all lower quality
-# 11 is 0.1 3HK. 
-# 12 is 0.04 interval. This is a network all values are in middle - low part 
-
-
-# 14 is 1s
-# 15 is 3s
-    if (index == 8): return 0.25
-    if (index == 9): return 0.01
-    if (index == 10): return 0.1
-    if (index == 11): return 0.1
-    if (index == 12): return 0.04
-    if (index == 13): return 0.02
-    if (index == 14): return 1
-    if (index == 15): return 3
-
-
+def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
+    # shift = find_le_index(a= timeSeq, x= currentTime)
+    pilot = timeSeq[-1]
+    result = []
+    while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
+        result.insert(0, (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS )
+        pilot = pilot - 1/FPS
+    
+    return result
 

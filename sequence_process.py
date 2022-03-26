@@ -31,12 +31,12 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 2
+whichVideo = 6
 # Note that FPS >= 1/networkSamplingInterval
-FPS = 15
+FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 600
+howLongIsVideoInSeconds = 300
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -83,7 +83,7 @@ for numberA in range(0,trainingDataLen):
 
 
 pGamma = 0.5
-pEpsilon = 0.05
+pEpsilon = 0.1
 
 testingTimeStart = timeTrack
 
@@ -91,8 +91,6 @@ testingTimeStart = timeTrack
 def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList):
     frame_prepared_time = []
     throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
-    # print("Inside function")
-    # print(len(throughputHistoryLog))
 
     realVideoFrameSize = []
  
@@ -110,8 +108,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
     throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
     count_skip = 0
 
-    accumulated_frame_sizes = 0
-    accumulated_time = 0
+    packet_level_integral_C = []
+    packet_level_time = []
+    packet_level_integral_C.append(0)
+    packet_level_time.append(runningTime)
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
@@ -126,6 +126,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
+            packet_level_integral_C.append(packet_level_integral_C[-1])
+            packet_level_time.append(runningTime)
         
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
             count_skip = count_skip + 1
@@ -142,32 +144,31 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         r_i = T_i * FPS
         
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-        meanC_i = mean(throughputHistoryLog)
+        lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
+        # if (singleFrame == 100):
+        #     print(lookBackwardHistogramC)
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            movingAvgNumber = 3
-            try:
-                adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-movingAvgNumber,): len(realVideoFrameSize)])
-                adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-movingAvgNumber,): len(realVideoFrameSize)], 
-                                            throughputHistoryLog[ max(0,len(throughputHistoryLog)-movingAvgNumber,): len(throughputHistoryLog)]) ]
-                # print(adjustedAM_Deno)
-                C_iMinus1 = adjustedAM_Nume/sum(adjustedAM_Deno)
-            except:
-                C_iMinus1 = throughputHistoryLog[-1]
+            # Now it's runningTime, we will check all values of F(rT)-F(rT-1/FPS)
+            assemble_list = throughputHistoryLog + lookBackwardHistogramC
+            decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
+
+            C_iMinus1 = decision_list[-1]
             subLongSeq = [
-                throughputHistoryLog[i+1] 
+                decision_list[i+1] 
                 for _, i in 
-                    zip(throughputHistoryLog,range(len(throughputHistoryLog))) 
-                if ( (abs((throughputHistoryLog[i]-C_iMinus1))/meanC_i< 0.01 ) and  i<len(throughputHistoryLog)-1   ) 
+                    zip(decision_list,range(len(decision_list))) 
+                if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
                 ]
                 
             try: 
-                if (len(subLongSeq)>20):
+                if (len(subLongSeq)>30):
                     tempCihat = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
                     suggestedFrameSize = throughputEstimate * T_i
-                    # pyplot.hist(subLongSeq, bins=100)
-                    # pyplot.show()
-                    # print(throughputEstimate)
+                    # print(runningTime - testingTimeStart)
+                    # if (runningTime - testingTimeStart> 200):
+                    #     pyplot.hist(subLongSeq, bins=40)
+                    #     pyplot.show()
                 else:
                     pTrackUsed = 5
                     adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
@@ -192,7 +193,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         elif (estimatingType == "Marginal"):
-            suggestedFrameSize = quantile(throughputHistoryLog, pEpsilon) * T_i
+            assemble_list = throughputHistoryLog + lookBackwardHistogramC
+            decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
+            suggestedFrameSize = quantile(decision_list, pEpsilon) * T_i
         # elif (estimatingType == "OLS"):
         #     pastDataUse = 30
         #     explantoryRVs = throughputHistoryLog[ len(throughputHistoryLog)-pastDataUse : len(throughputHistoryLog)][::-1]
@@ -208,10 +211,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         #######################################################################################
 
         # The following function will calculate t_f.
-        uploadFinishTime = utils.packet_level_frame_upload_finish_time( runningTime= runningTime,
+        [uploadFinishTime,packet_level_integral_C, packet_level_time ] = utils.packet_level_frame_upload_finish_time( runningTime= runningTime,
                                                                         packet_level_data= networkEnvPacket,
                                                                         packet_level_timestamp= networkEnvTime,
-                                                                        framesize= thisFrameSize)
+                                                                        framesize= thisFrameSize,
+                                                                        packet_level_integral_C = packet_level_integral_C,
+                                                                        packet_level_time = packet_level_time,)
 
         # We record the sent frames' information in this array.
         if (uploadFinishTime<=howLongIsVideoInSeconds + testingTimeStart):
@@ -237,12 +242,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 20
+number = 5
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.005, 0.2 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000005, 0.15 ,num=number, endpoint=True)
 
-lenLimit = 600*FPS
+lenLimit = 180*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 
