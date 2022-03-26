@@ -31,11 +31,11 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 6
+whichVideo = 2
 FPS = 60
 
 # Testing Set Size
-howLongIsVideoInSeconds = 120
+howLongIsVideoInSeconds = 10
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -92,7 +92,9 @@ pEpsilon = 0.2
 testingTimeStart = timeTrack
 
 
-def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList):
+def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList, 
+                    packet_level_integral_C, packet_level_time):
+
     frame_prepared_time = []
     throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
 
@@ -126,8 +128,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
-            packet_level_integral_C.append(packet_level_integral_C[-1])
-            packet_level_time.append(runningTime)
+            if (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"):
+                packet_level_integral_C.append(packet_level_integral_C[-1])
+                packet_level_time.append(runningTime)
         
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
             count_skip = count_skip + 1
@@ -169,10 +172,11 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                         tempCihat = quantile(subLongSeq, pEpsilon)
                         throughputEstimate = ( 1 + pGamma/r_i ) * tempCihat
                         suggestedFrameSize = throughputEstimate * T_i
-                        print(runningTime - testingTimeStart)
-                        if (runningTime - testingTimeStart> 0):
-                            pyplot.hist(subLongSeq, bins=100)
-                            pyplot.show()
+                        # print(runningTime - testingTimeStart)
+                        # if (runningTime - testingTimeStart> 0):
+                        #     print(C_iMinus1)
+                        #     pyplot.hist(subLongSeq, bins=50)
+                        #     pyplot.show()
                     else:
                         pTrackUsed = 5
                         adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
@@ -227,10 +231,12 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         #######################################################################################
 
         # The following function will calculate t_f.
-        [uploadFinishTime,packet_level_integral_C, packet_level_time ] = utils.packet_level_frame_upload_finish_time( runningTime= runningTime,
+        [uploadFinishTime,packet_level_integral_C, packet_level_time ] = utils.packet_level_frame_upload_finish_time( 
+                                                                        runningTime= runningTime,
                                                                         packet_level_data= networkEnvPacket,
                                                                         packet_level_timestamp= networkEnvTime,
                                                                         framesize= thisFrameSize,
+                                                                        toUsePacketRecords = (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"),
                                                                         packet_level_integral_C = packet_level_integral_C,
                                                                         packet_level_time = packet_level_time,)
 
@@ -286,19 +292,28 @@ for x_for_b in xAxis:
     # OLSpredSizeArray.append(OLSpred[0])
     # print("OLS: " + str(OLSpred[0]) + " " + str(count_OLS/(howLongIsVideoInSeconds*FPS)))
 
-    b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    b = uploadProcess('dummyUsername2', x_for_b , "ProbabilityPredict", 
+                        pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
+                        pTrackUsed=0, 
+                        packet_level_integral_C=packet_level_integral_C, packet_level_time=packet_level_time)
     count_skipB = b[2]
     ecmLossRateArray.append(count_skipB/(howLongIsVideoInSeconds*FPS))
     ecmTotalSizeArray.append(b[0])
     print("OurMethod: " + str(b[0]) + " " + str(count_skipB/(howLongIsVideoInSeconds*FPS)))
 
-    m = uploadProcess('dummyUsername2', x_for_b , "MinimalFrame", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    m = uploadProcess('dummyUsername2', x_for_b , "MinimalFrame", 
+                        pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
+                        pTrackUsed=0, 
+                        packet_level_time=[], packet_level_integral_C=[])
     count_skipM = m[2]
     minimalLossRateArray.append(count_skipM/(howLongIsVideoInSeconds*FPS))
     minimalSizeArray.append(m[0])
     print("Minimal: " + str(m[0]) + " " + str(count_skipM/(howLongIsVideoInSeconds*FPS)))
 
-    marginal = uploadProcess('dummyUsername2', x_for_b , "Marginal", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
+    marginal = uploadProcess('dummyUsername2', x_for_b , 
+                            "Marginal", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
+                            pTrackUsed=0, 
+                            packet_level_integral_C=packet_level_integral_C, packet_level_time=packet_level_time)
     count_skipMarginal = marginal[2]
     marginalProbLossRateArray.append(count_skipMarginal/(howLongIsVideoInSeconds*FPS))
     marginalProbSizeArray.append(marginal[0])
@@ -310,7 +325,7 @@ amLossRateMatrix = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
 amTotalSizeMatrix  = [ [0] * len(xAxis)  for _ in range(len(mAxis))]
 for trackUsed, ix in zip(mAxis,range(len(mAxis))):
     for x, iy in zip(xAxis, range(len(xAxis))):
-        a = uploadProcess('dummyUsername1', x , "A.M.", pLogCi=bigHistorySequence, forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
+        a = uploadProcess('dummyUsername1', x , "A.M.", pLogCi=bigHistorySequence, forTrain=False, pTrackUsed=trackUsed, pForgetList=[], packet_level_time=[],packet_level_integral_C=[])
         count_skipA = a[2]
         amLossRateMatrix[ix][iy] = count_skipA/(howLongIsVideoInSeconds*FPS)
         amTotalSizeMatrix[ix][iy] = a[0]

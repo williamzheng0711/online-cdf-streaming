@@ -67,7 +67,7 @@ def find_gt_index(a, x):
 
 
 def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize,
-                                            packet_level_integral_C, packet_level_time ):
+                                            packet_level_integral_C, packet_level_time, toUsePacketRecords ):
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     i = 0 
 
@@ -75,16 +75,18 @@ def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packe
         if (i == 0):
             i = 1
             s_temp = framesize - packet_level_data[shift]
-            packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-            packet_level_time.append(packet_level_timestamp[shift])
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
             if (s_temp<=0):
                 t_out = packet_level_timestamp[shift]
                 return [t_out, packet_level_integral_C, packet_level_time]
             framesize = s_temp
         else: 
             s_temp = framesize - packet_level_data[shift]
-            packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-            packet_level_time.append(packet_level_timestamp[shift])
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
             if (s_temp<=0): 
                 t_out = packet_level_timestamp[shift]
                 return [t_out,packet_level_integral_C, packet_level_time]
