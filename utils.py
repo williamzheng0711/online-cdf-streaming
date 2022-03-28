@@ -1,3 +1,4 @@
+from gettext import find
 import math
 from unittest import result
 from warnings import catch_warnings
@@ -11,6 +12,8 @@ from numpy.core.fromnumeric import argmax, mean, size, var
 import math
 import random
 import bisect
+
+from sklearn.metrics import top_k_accuracy_score
 
 B_IN_MB = 1000.0*1000.0
 
@@ -231,6 +234,16 @@ def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceData
     
         return [model,tobeDeleted]
 
+def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
+    # shift = find_le_index(a= timeSeq, x= currentTime)
+    pilot = timeSeq[-1]
+    result = []
+    while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
+        result.insert(0, (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS )
+        pilot = pilot - 1/FPS
+    
+    return result
+
 def find_le_index(a, x):
     'Find rightmost value less than or equal to x'
     i = bisect.bisect_right(a, x)
@@ -253,19 +266,30 @@ def find_lt_index(a, x):
     raise ValueError
 
 def F(pilotTime, int_C, timeSeq):
+    try:
+        ge_index = find_ge_index(timeSeq,pilotTime)
+    except: 
+        ge_index = len(timeSeq) - 1
     lt_index = find_lt_index(timeSeq,pilotTime)
-    ge_index = lt_index + 1
-    FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
+
+    if (lt_index == ge_index or timeSeq[ge_index]-timeSeq[lt_index] ==0):
+        FValue = int_C[lt_index]
+    else:
+        FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
+    if (FValue < 0 ):
+        print("Big: " + str(int_C[ge_index])  +" Small: " + str(int_C[lt_index]) + " TB: " + str(timeSeq[ge_index]) + " TS: " + str(timeSeq[lt_index]) + "plt: " + str(pilotTime) )
     return FValue
 
-
-def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
+def generatingBackwardHistogramS(backwardTime, int_C, timeSeq, currentTime, lenLimit):
     # shift = find_le_index(a= timeSeq, x= currentTime)
     pilot = timeSeq[-1]
     result = []
-    while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
-        result.insert(0, (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS )
-        pilot = pilot - 1/FPS
+    while (len(result)< lenLimit and pilot-backwardTime>timeSeq[0]):
+        F_big = F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)
+        F_small = F(pilotTime =pilot - backwardTime, int_C=int_C, timeSeq=timeSeq)
+        total_size_sent_interval = F_big - F_small
+        if (total_size_sent_interval <0): print("Fbig :" + str(F_big) + "Fsmall " + str(F_small))
+        result.insert(0, total_size_sent_interval)
+        pilot = pilot - backwardTime
     
     return result
-
