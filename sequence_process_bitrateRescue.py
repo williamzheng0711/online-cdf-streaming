@@ -31,8 +31,8 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 6
-FPS = 30
+whichVideo = 5
+FPS = 60
 
 # Testing Set Size
 howLongIsVideoInSeconds = 60
@@ -52,7 +52,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 300
+PreRunTime = 600
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -107,8 +107,9 @@ pEpsilon = 0.05
 print(mean(sampleThroughputRecord))
 print(quantile(sampleThroughputRecord,pEpsilon))
 
-t_experiment = (2)*(quantile(sampleThroughputRecord,1-pEpsilon)/quantile(sampleThroughputRecord,pEpsilon))/FPS
+t_experiment = (2*mean(sampleThroughputRecord)/quantile(sampleThroughputRecord,pEpsilon)-1)/FPS
 print("T_experiment: " + str(t_experiment))
+
 pTbuffer_original = t_experiment
 
 testingTimeStart = packet_level_time_training[-1]
@@ -156,7 +157,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             runningTime = frame_prepared_time[singleFrame]
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
-            # print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
+            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) + "Now is time: " + str(runningTime - testingTimeStart)  )
             count_skip = count_skip + 1
             timeBuffer = max ( pTbuffer_original - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
@@ -176,15 +177,14 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         # 
 
         if (estimatingType == "ProbabilityPredict" ):
-            localLenLimit = int( (1/(T_i+timeBuffer))*lenLimit/FPS)
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= T_i + timeBuffer/2, 
+            localLenLimit = 60 * FPS
+            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + T_i, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
-                                                                        lenLimit = lenLimit) 
+                                                                        lenLimit = localLenLimit) 
             assemble_list = lookBackwardHistogramS
-            decision_list = assemble_list[ max((len(assemble_list) - lenLimit),0) : ]
-            pTrackUsed = 16
+            decision_list = assemble_list[ max((len(assemble_list) - localLenLimit),0) : ]
 
             try:
                 backwardTimeTimesC_iMinus1 = decision_list[-1]
@@ -192,37 +192,23 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     decision_list[i+1] 
                     for _, i in 
                         zip(decision_list,range(len(decision_list))) 
-                    if ( (abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
-                    ]
-                # print(subLongSeq)
-                try: 
-                    if (len(subLongSeq)>30):
-                        suggestedFrameSize = quantile(subLongSeq, pEpsilon)
-                        # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize))
-                        # if (runningTime - testingTimeStart> 0):
-                            # if (backwardTimeTimesC_iMinus1<0): 
-                        # pyplot.hist(subLongSeq, bins=30)
-                        # pyplot.show()
-                    else:
-                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                        # print(adjustedAM_Deno)
-                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                        suggestedFrameSize = (1/FPS) * C_i_hat_AM
-                except:
-                    suggestedFrameSize = minimal_framesize
+                    if  i<len(decision_list)-1  and i>=1 and
+                         abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.05 ]
+                
+                if (len(subLongSeq)>20):
+                    suggestedFrameSize = quantile(subLongSeq, pEpsilon)
+                    # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize) + " Now buffer is "+ str(timeBuffer))
+                    # if (runningTime - testingTimeStart> 40):
+                        # if (backwardTimeTimesC_iMinus1<0): 
+                    # pyplot.hist(subLongSeq, bins=30)
+                    # pyplot.show()
+                # else:
+                #     suggestedFrameSize = minimal_framesize
             except:
-                try:
-                    adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                    adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                    throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                    # print(adjustedAM_Deno)
-                    C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                    suggestedFrameSize = (1/FPS) * C_i_hat_AM
-                except:
-                    suggestedFrameSize = minimal_framesize
-     
+                suggestedFrameSize = minimal_framesize
+
+        #######################################################################################
+        #################  A.M. Algorithm ################################
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
                 adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
@@ -288,7 +274,7 @@ mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
 
 
-lenLimit = 300*FPS
+lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 
