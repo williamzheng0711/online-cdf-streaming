@@ -35,7 +35,7 @@ whichVideo = 6
 FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 30
+howLongIsVideoInSeconds = 60
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -52,7 +52,7 @@ packet_level_time = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 1200
+PreRunTime = 600
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -101,8 +101,15 @@ for numberA in range(len(networkEnvPacket_AM)):
 
 ############################################################################
 
-pTbuffer_original = 0.25
-pEpsilon = 0.03
+
+pEpsilon = 0.05
+
+print(mean(sampleThroughputRecord))
+print(quantile(sampleThroughputRecord,pEpsilon))
+
+t_experiment = (2)*(quantile(sampleThroughputRecord,1-pEpsilon)/quantile(sampleThroughputRecord,pEpsilon))/FPS
+print("T_experiment: " + str(t_experiment))
+pTbuffer_original = 5
 
 testingTimeStart = packet_level_time[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
@@ -132,7 +139,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
     uploadDuration = 0
 
     # initialize the C_0 hat (in MB), which is a "default guess"
-    throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
     count_skip = 0
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
@@ -149,8 +155,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
             count_skip = count_skip + 1
-            print("發生跳幀了")
             timeBuffer = max ( pTbuffer_original - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
+            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
             continue
 
         #######################################################################################
@@ -168,19 +174,20 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             # Now it's runningTime, we will check all values of F(rT)-F(rT-1/FPS)
-            # print("Now the buffer is: " + str(timeBuffer) )
+            print("Now the buffer is: " + str(timeBuffer) )
             # print("Is time order correct? " + str(localPLT == sorted(localPLT)) + " And its length is " + str(len(localPLT)))
             # if (localPLT == sorted(localPLT))==False :
             #     raise ValueError
             # print("Is size integration order correct? " + str(localPLIC == sorted(localPLIC)) + " And its length is " + str(len(localPLIC))) 
+            localLenLimit = int( (1/(T_i+timeBuffer))*lenLimit/FPS)
             lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= T_i + timeBuffer, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
                                                                         lenLimit = lenLimit) 
             assemble_list = lookBackwardHistogramS
-            decision_list = assemble_list[ max((len(assemble_list) -1 - lenLimit),0) : len(assemble_list)]
-            
+            decision_list = assemble_list[ max((len(assemble_list) - lenLimit),0) : ]
+            pTrackUsed = 16
 
             try:
                 backwardTimeTimesC_iMinus1 = decision_list[-1]
@@ -194,15 +201,13 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                 try: 
                     if (len(subLongSeq)>30):
                         suggestedFrameSize = quantile(subLongSeq, pEpsilon)
-                        print("計時器: " + str(runningTime - testingTimeStart))
-                        # print("Decision size: " + str(suggestedFrameSize))
+                        print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize))
                         # if (runningTime - testingTimeStart> 0):
                         #     print("Stat Used: " + str(backwardTimeTimesC_iMinus1))
-                        #     # if (backwardTimeTimesC_iMinus1<0): 
-                        #     pyplot.hist(subLongSeq, bins=50)
-                        #     pyplot.show()
+                            # if (backwardTimeTimesC_iMinus1<0): 
+                            # pyplot.hist(subLongSeq, bins=30)
+                            # pyplot.show()
                     else:
-                        pTrackUsed = 5
                         adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
                         adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
                                                 throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
@@ -213,7 +218,6 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     suggestedFrameSize = minimal_framesize
             except:
                 try:
-                    pTrackUsed = 5
                     adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
                     adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
                                                     throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
@@ -288,7 +292,7 @@ mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
 
 
-lenLimit = 300*FPS
+lenLimit = 600*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 
@@ -396,3 +400,5 @@ pyplot.legend(  AMLegendTotalSize +
 
 pyplot.title("Target: " + str(pEpsilon))
 pyplot.show()
+
+print("T_experiment: " + str(t_experiment))
