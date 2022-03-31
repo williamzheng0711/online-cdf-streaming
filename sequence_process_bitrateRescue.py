@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 6
+whichVideo = 5
 FPS = 30
 
 # Testing Set Size
@@ -109,7 +109,7 @@ print(quantile(sampleThroughputRecord,pEpsilon))
 
 t_experiment = (2)*(quantile(sampleThroughputRecord,1-pEpsilon)/quantile(sampleThroughputRecord,pEpsilon))/FPS
 print("T_experiment: " + str(t_experiment))
-pTbuffer_original = 0.5
+pTbuffer_original = t_experiment
 
 testingTimeStart = packet_level_time[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
@@ -180,7 +180,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             #     raise ValueError
             # print("Is size integration order correct? " + str(localPLIC == sorted(localPLIC)) + " And its length is " + str(len(localPLIC))) 
             localLenLimit = int( (1/(T_i+timeBuffer))*lenLimit/FPS)
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= min(T_i + timeBuffer, pTbuffer_original/2), 
+            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= T_i + timeBuffer/2, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
