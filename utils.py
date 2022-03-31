@@ -61,14 +61,6 @@ def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInte
     print(size)
 
 
-def find_gt_index(a, x):
-    'Find leftmost (index) value greater than x'
-    i = bisect.bisect_right(a, x)
-    if i != len(a):
-        return i
-    raise ValueError
-
-
 def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize,
                                             packet_level_integral_C, packet_level_time, toUsePacketRecords ):
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
@@ -235,7 +227,6 @@ def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceData
         return [model,tobeDeleted]
 
 def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
-    # shift = find_le_index(a= timeSeq, x= currentTime)
     pilot = timeSeq[-1]
     result = []
     while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
@@ -244,11 +235,25 @@ def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
     
     return result
 
+def find_lt_index(a, x):
+    'Find rightmost value less than x'
+    i = bisect.bisect_left(a, x)
+    if i:
+        return i-1
+    raise ValueError
+
 def find_le_index(a, x):
     'Find rightmost value less than or equal to x'
     i = bisect.bisect_right(a, x)
     if i:
-        return a[i-1]
+        return i-1
+    raise ValueError
+
+def find_gt_index(a, x):
+    'Find leftmost value greater than x'
+    i = bisect.bisect_right(a, x)
+    if i != len(a):
+        return i
     raise ValueError
 
 def find_ge_index(a, x):
@@ -258,37 +263,29 @@ def find_ge_index(a, x):
         return i
     raise ValueError
 
-def find_lt_index(a, x):
-    'Find rightmost value less than x'
-    i = bisect.bisect_left(a, x)
-    if i:
-        return i-1
-    raise ValueError
-
 def F(pilotTime, int_C, timeSeq):
     try:
         ge_index = find_ge_index(timeSeq,pilotTime)
     except: 
         ge_index = len(timeSeq) - 1
-    lt_index = find_lt_index(timeSeq,pilotTime)
+    lt_index = find_le_index(timeSeq,pilotTime)
 
-    if (lt_index == ge_index or timeSeq[ge_index]-timeSeq[lt_index] ==0):
+    if (int_C[lt_index] == int_C[ge_index] ==0 or timeSeq[ge_index]-timeSeq[lt_index] == 0):
         FValue = int_C[lt_index]
     else:
         FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
-    if (FValue < 0 ):
-        print("Big: " + str(int_C[ge_index])  +" Small: " + str(int_C[lt_index]) + " TB: " + str(timeSeq[ge_index]) + " TS: " + str(timeSeq[lt_index]) + "plt: " + str(pilotTime) )
     return FValue
 
 def generatingBackwardHistogramS(backwardTime, int_C, timeSeq, currentTime, lenLimit):
-    # shift = find_le_index(a= timeSeq, x= currentTime)
-    pilot = timeSeq[-1]
+    shift = find_le_index(a= timeSeq, x= currentTime)
+    # print(shift)
+    pilot = timeSeq[shift]
     result = []
     while (len(result)< lenLimit and pilot-backwardTime>timeSeq[0]):
         F_big = F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)
         F_small = F(pilotTime =pilot - backwardTime, int_C=int_C, timeSeq=timeSeq)
         total_size_sent_interval = F_big - F_small
-        if (total_size_sent_interval <0): print("Fbig :" + str(F_big) + "Fsmall " + str(F_small))
+        if (total_size_sent_interval <0): print(str(currentTime) + " is the current time and " + str(pilot))
         result.insert(0, total_size_sent_interval)
         pilot = pilot - backwardTime
     

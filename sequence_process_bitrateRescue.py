@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 5
+whichVideo = 6
 FPS = 30
 
 # Testing Set Size
@@ -46,13 +46,13 @@ networkEnvTime = []
 networkEnvPacket= []
 count = 0
 initialTime = 0
-packet_level_integral_C = []
-packet_level_time = []
+packet_level_integral_C_training = []
+packet_level_time_training = []
 
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 600
+PreRunTime = 300
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -67,18 +67,19 @@ for suffixNum in range(whichVideo,whichVideo+1):
                 networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
                 networkEnvTime_AM.append(nowFileTime - initialTime)
                 networkEnvPacket_AM.append( float(parse[1]) / B_IN_MB ) 
-                if (len(packet_level_integral_C)==0):
-                    packet_level_integral_C.append(networkEnvPacket[-1]+ 0 )
+                if (len(packet_level_integral_C_training)==0):
+                    packet_level_integral_C_training.append(0 )
                 else:
-                    packet_level_integral_C.append(networkEnvPacket[-1]+packet_level_integral_C[-1])
-                packet_level_time.append(nowFileTime - initialTime)
+                    packet_level_integral_C_training.append(networkEnvPacket[-1]+packet_level_integral_C_training[-1])
+                packet_level_time_training.append(nowFileTime - initialTime)
                 count = count  +1 
             else:
                 networkEnvTime.append(nowFileTime - initialTime)
                 networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
                 count = count  +1 
                 
-print("Before using time-packet, is time order correct? "+ str(packet_level_time == sorted(packet_level_time, reverse=False)))
+print("Before using time-packet, is time order correct? "+ str(packet_level_time_training == sorted(packet_level_time_training, reverse=False)))
+print("Before using integral records, is the order correct? "+ str(packet_level_integral_C_training == sorted(packet_level_integral_C_training, reverse=False)))
 # All things above are  "environment"'s initialization, 
 # which cannot be manipulated by our algorithm.
 ############################################################################
@@ -101,7 +102,6 @@ for numberA in range(len(networkEnvPacket_AM)):
 
 ############################################################################
 
-
 pEpsilon = 0.05
 
 print(mean(sampleThroughputRecord))
@@ -111,7 +111,7 @@ t_experiment = (2)*(quantile(sampleThroughputRecord,1-pEpsilon)/quantile(sampleT
 print("T_experiment: " + str(t_experiment))
 pTbuffer_original = t_experiment
 
-testingTimeStart = packet_level_time[-1]
+testingTimeStart = packet_level_time_training[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
 
 
@@ -133,6 +133,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
     tempTimeTrack = testingTimeStart
     runningTime = testingTimeStart
     for _ in range( howLongIsVideoInSeconds * FPS ):
+        # 所以 frame_prepared_time 的第一個元素 是 testingimeStart
         frame_prepared_time.append(tempTimeTrack)
         tempTimeTrack = tempTimeTrack + 1/FPS
     
@@ -143,7 +144,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        # print(runningTime - testingTimeStart)
+        if (singleFrame % 150 == 0 and estimatingType == "ProbabilityPredict"):
+            print("Now is time: " + str(runningTime - testingTimeStart))
         ########################################################################################
 
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
@@ -154,7 +156,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             runningTime = frame_prepared_time[singleFrame]
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
-            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
+            # print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
             count_skip = count_skip + 1
             timeBuffer = max ( pTbuffer_original - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
@@ -162,23 +164,18 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         #######################################################################################
         # Anyway, from now on, the uploader is ready to send singleFrame
         # In this part, we determine what is the suggestedFrameSize 
-        # We initialize the guess as minimal_framesize
+        # We initialize the guess
         suggestedFrameSize = -np.Infinity
 
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = (1/FPS - delta)
         # r_i = T_i * FPS
         
+        # This is for AM's use
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
         # 
 
-        if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            # Now it's runningTime, we will check all values of F(rT)-F(rT-1/FPS)
-            print("Now the buffer is: " + str(timeBuffer) )
-            # print("Is time order correct? " + str(localPLT == sorted(localPLT)) + " And its length is " + str(len(localPLT)))
-            # if (localPLT == sorted(localPLT))==False :
-            #     raise ValueError
-            # print("Is size integration order correct? " + str(localPLIC == sorted(localPLIC)) + " And its length is " + str(len(localPLIC))) 
+        if (estimatingType == "ProbabilityPredict" ):
             localLenLimit = int( (1/(T_i+timeBuffer))*lenLimit/FPS)
             lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= T_i + timeBuffer/2, 
                                                                         int_C=localPLIC,
@@ -201,7 +198,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                 try: 
                     if (len(subLongSeq)>30):
                         suggestedFrameSize = quantile(subLongSeq, pEpsilon)
-                        print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize))
+                        # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize))
                         # if (runningTime - testingTimeStart> 0):
                             # if (backwardTimeTimesC_iMinus1<0): 
                         # pyplot.hist(subLongSeq, bins=30)
@@ -291,7 +288,7 @@ mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
 
 
-lenLimit = 600*FPS
+lenLimit = 300*FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 
@@ -308,8 +305,8 @@ OLSpredLossRateArray = []
 OLSpredSizeArray = []
 
 
-packet_level_integral_C_original = packet_level_integral_C
-packet_level_time_original = packet_level_time
+packet_level_integral_C_original = packet_level_integral_C_training
+packet_level_time_original = packet_level_time_training
 
 
 for x_for_b in xAxis:
