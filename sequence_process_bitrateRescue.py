@@ -109,7 +109,7 @@ print(quantile(sampleThroughputRecord,pEpsilon))
 
 t_experiment = (2)*(quantile(sampleThroughputRecord,1-pEpsilon)/quantile(sampleThroughputRecord,pEpsilon))/FPS
 print("T_experiment: " + str(t_experiment))
-pTbuffer_original = 5
+pTbuffer_original = 0.5
 
 testingTimeStart = packet_level_time[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
@@ -154,9 +154,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             runningTime = frame_prepared_time[singleFrame]
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
+            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
             count_skip = count_skip + 1
             timeBuffer = max ( pTbuffer_original - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
-            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) )
             continue
 
         #######################################################################################
@@ -180,7 +180,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             #     raise ValueError
             # print("Is size integration order correct? " + str(localPLIC == sorted(localPLIC)) + " And its length is " + str(len(localPLIC))) 
             localLenLimit = int( (1/(T_i+timeBuffer))*lenLimit/FPS)
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= T_i + timeBuffer, 
+            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= min(T_i + timeBuffer, pTbuffer_original/2), 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
@@ -203,10 +203,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                         suggestedFrameSize = quantile(subLongSeq, pEpsilon)
                         print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize))
                         # if (runningTime - testingTimeStart> 0):
-                        #     print("Stat Used: " + str(backwardTimeTimesC_iMinus1))
                             # if (backwardTimeTimesC_iMinus1<0): 
-                            # pyplot.hist(subLongSeq, bins=30)
-                            # pyplot.show()
+                        # pyplot.hist(subLongSeq, bins=30)
+                        # pyplot.show()
                     else:
                         adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
                         adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
