@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 5
+whichVideo = 3
 FPS = 60
 
 # Testing Set Size
@@ -52,7 +52,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 600
+PreRunTime = 300
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -107,7 +107,8 @@ pEpsilon = 0.05
 print(mean(sampleThroughputRecord))
 print(quantile(sampleThroughputRecord,pEpsilon))
 
-t_experiment = (2*mean(sampleThroughputRecord)/quantile(sampleThroughputRecord,pEpsilon)-1)/FPS
+
+t_experiment = (3*mean(sampleThroughputRecord)/quantile(sampleThroughputRecord,pEpsilon)-1)/FPS
 print("T_experiment: " + str(t_experiment))
 
 pTbuffer_original = t_experiment
@@ -157,7 +158,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             runningTime = frame_prepared_time[singleFrame]
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
-            print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) + "Now is time: " + str(runningTime - testingTimeStart)  )
+            # print("發生跳幀了" + "Now the buffer is: " + str(timeBuffer) + "Now is time: " + str(runningTime - testingTimeStart)  )
             count_skip = count_skip + 1
             timeBuffer = max ( pTbuffer_original - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
@@ -178,7 +179,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         if (estimatingType == "ProbabilityPredict" ):
             localLenLimit = 60 * FPS
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + T_i, 
+            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + T_i + 1/FPS, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
@@ -188,19 +189,19 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
             try:
                 backwardTimeTimesC_iMinus1 = decision_list[-1]
-                subLongSeq = [
-                    decision_list[i+1] 
-                    for _, i in 
-                        zip(decision_list,range(len(decision_list))) 
-                    if  i<len(decision_list)-1  and i>=1 and
-                         abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.05 ]
+                # subLongSeq = [
+                #     decision_list[i+1] 
+                #     for _, i in 
+                #         zip(decision_list,range(len(decision_list))) 
+                #     if  i<len(decision_list)-1  and i>=1 and
+                #          abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.1 ]
                 
-                if (len(subLongSeq)>20):
-                    suggestedFrameSize = quantile(subLongSeq, pEpsilon)
+                if (len(decision_list)>20):
+                    suggestedFrameSize = quantile(decision_list, pEpsilon/3)
                     # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize) + " Now buffer is "+ str(timeBuffer))
                     # if (runningTime - testingTimeStart> 40):
                         # if (backwardTimeTimesC_iMinus1<0): 
-                    # pyplot.hist(subLongSeq, bins=30)
+                    # pyplot.hist(decision_list, bins=30)
                     # pyplot.show()
                 # else:
                 #     suggestedFrameSize = minimal_framesize

@@ -31,11 +31,13 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo =2
+whichVideo =6
 FPS = 30
 
 # Testing Set Size
-howLongIsVideoInSeconds = 100
+howLongIsVideoInSeconds = 60
+
+timeBufferOriginal = 3/FPS
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -94,6 +96,7 @@ testingTimeStart = timeTrack
 
 def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList, 
                     packet_level_integral_C, packet_level_time):
+    timeBuffer = timeBufferOriginal
 
     frame_prepared_time = []
     throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
@@ -128,12 +131,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
-            if (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"):
-                packet_level_integral_C.append(packet_level_integral_C[-1])
-                packet_level_time.append(runningTime)
         
-        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS):
+        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
             count_skip = count_skip + 1
+            timeBuffer = max ( timeBufferOriginal - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
         #######################################################################################
@@ -172,30 +173,18 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                         tempCihat = quantile(subLongSeq, pEpsilon)
                         throughputEstimate = tempCihat
                         suggestedFrameSize = throughputEstimate * (1/FPS)
-                        # print(runningTime - testingTimeStart)
+                        print(runningTime - testingTimeStart)
                         # if (runningTime - testingTimeStart> 0):
                         #     print(C_iMinus1)
                         #     pyplot.hist(subLongSeq, bins=50)
                         #     pyplot.show()
                     else:
-                        pTrackUsed = 5
-                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                        # print(adjustedAM_Deno)
-                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                        suggestedFrameSize = (1/FPS) * C_i_hat_AM
+                        suggestedFrameSize = minimal_framesize
                 except:
                     suggestedFrameSize = minimal_framesize
             except:
                 try:
-                    pTrackUsed = 5
-                    adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                    adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                    throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                    # print(adjustedAM_Deno)
-                    C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                    suggestedFrameSize = (1/FPS) * C_i_hat_AM
+                    suggestedFrameSize = minimal_framesize
                 except:
                     suggestedFrameSize = minimal_framesize
      
@@ -247,6 +236,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         uploadDuration = uploadFinishTime - runningTime
         runningTime = runningTime + uploadDuration 
 
+        timeBuffer = max ( timeBufferOriginal - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
+
         # accumulated_time += uploadDuration
         # Here we calculated the C_{i-1}
         # if (uploadDuration >= 0.5/FPS):
@@ -257,6 +248,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         # else:
         #     accumulated_frame_sizes += thisFrameSize
         #     accumulated_time += uploadDuration
+
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
 
@@ -264,7 +256,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 50
+number = 1
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
@@ -310,14 +302,14 @@ for x_for_b in xAxis:
     minimalSizeArray.append(m[0])
     print("Minimal: " + str(m[0]) + " " + str(count_skipM/(howLongIsVideoInSeconds*FPS)))
 
-    marginal = uploadProcess('dummyUsername2', x_for_b , 
-                            "Marginal", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
-                            pTrackUsed=0, 
-                            packet_level_integral_C=packet_level_integral_C, packet_level_time=packet_level_time)
-    count_skipMarginal = marginal[2]
-    marginalProbLossRateArray.append(count_skipMarginal/(howLongIsVideoInSeconds*FPS))
-    marginalProbSizeArray.append(marginal[0])
-    print("Marginal: " + str(marginal[0]) + " " + str(count_skipMarginal/(howLongIsVideoInSeconds*FPS)))
+    # marginal = uploadProcess('dummyUsername2', x_for_b , 
+    #                         "Marginal", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
+    #                         pTrackUsed=0, 
+    #                         packet_level_integral_C=packet_level_integral_C, packet_level_time=packet_level_time)
+    # count_skipMarginal = marginal[2]
+    # marginalProbLossRateArray.append(count_skipMarginal/(howLongIsVideoInSeconds*FPS))
+    # marginalProbSizeArray.append(marginal[0])
+    # print("Marginal: " + str(marginal[0]) + " " + str(count_skipMarginal/(howLongIsVideoInSeconds*FPS)))
 
     print("----------------------------")
 
