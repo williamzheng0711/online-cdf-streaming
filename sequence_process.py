@@ -31,13 +31,13 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo =6
+whichVideo = 4
 FPS = 30
 
 # Testing Set Size
 howLongIsVideoInSeconds = 60
 
-timeBufferOriginal = 3/FPS
+timeBufferOriginal = 0/FPS
 
 # Training Data Size
 timePacketsDataLoad = 4000000
@@ -159,35 +159,29 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             assemble_list = lookBackwardHistogramC
             decision_list = assemble_list[ max((len(assemble_list) -1 - lenLimit),0) : len(assemble_list)]
 
-            try:
-                C_iMinus1 = decision_list[-1]
-                subLongSeq = [
-                    decision_list[i+1] 
-                    for _, i in 
-                        zip(decision_list,range(len(decision_list))) 
-                    if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
-                    ]
+            C_iMinus1 = decision_list[-1]
+            subLongSeq = [
+                decision_list[i+1] 
+                for _, i in 
+                    zip(decision_list,range(len(decision_list))) 
+                if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1   ) 
+                ]
                     
-                try: 
-                    if (len(subLongSeq)>30):
-                        tempCihat = quantile(subLongSeq, pEpsilon)
-                        throughputEstimate = tempCihat
-                        suggestedFrameSize = throughputEstimate * (1/FPS)
-                        print(runningTime - testingTimeStart)
-                        # if (runningTime - testingTimeStart> 0):
-                        #     print(C_iMinus1)
-                        #     pyplot.hist(subLongSeq, bins=50)
-                        #     pyplot.show()
-                    else:
-                        suggestedFrameSize = minimal_framesize
-                except:
+            try: 
+                if (len(subLongSeq)>30):
+                    tempCihat = quantile(subLongSeq, pEpsilon)
+                    throughputEstimate = tempCihat
+                    suggestedFrameSize = throughputEstimate * (1/FPS)
+                    print(runningTime - testingTimeStart)
+                    # if (runningTime - testingTimeStart> 0):
+                    #     print(C_iMinus1)
+                    #     pyplot.hist(subLongSeq, bins=50)
+                    #     pyplot.show()
+                else:
                     suggestedFrameSize = minimal_framesize
             except:
-                try:
-                    suggestedFrameSize = minimal_framesize
-                except:
-                    suggestedFrameSize = minimal_framesize
-     
+                suggestedFrameSize = minimal_framesize
+
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
                 adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])

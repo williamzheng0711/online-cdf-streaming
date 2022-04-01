@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 3
+whichVideo = 7
 FPS = 60
 
 # Testing Set Size
@@ -108,10 +108,7 @@ print(mean(sampleThroughputRecord))
 print(quantile(sampleThroughputRecord,pEpsilon))
 
 
-t_experiment = (3*mean(sampleThroughputRecord)/quantile(sampleThroughputRecord,pEpsilon)-1)/FPS
-print("T_experiment: " + str(t_experiment))
-
-pTbuffer_original = t_experiment
+pTbuffer_original = 1/FPS
 
 testingTimeStart = packet_level_time_training[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
@@ -179,7 +176,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         if (estimatingType == "ProbabilityPredict" ):
             localLenLimit = 60 * FPS
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + T_i + 1/FPS, 
+            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + 1/FPS, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
@@ -189,22 +186,18 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
             try:
                 backwardTimeTimesC_iMinus1 = decision_list[-1]
-                # subLongSeq = [
-                #     decision_list[i+1] 
-                #     for _, i in 
-                #         zip(decision_list,range(len(decision_list))) 
-                #     if  i<len(decision_list)-1  and i>=1 and
-                #          abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.1 ]
+                subLongSeq = [ decision_list[i+1] 
+                                for _, i in zip(decision_list,range(len(decision_list))) 
+                                if  i<len(decision_list)-1  and i>=1 and abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.05 
+                            ]
                 
                 if (len(decision_list)>20):
-                    suggestedFrameSize = quantile(decision_list, pEpsilon/3)
+                    suggestedFrameSize = quantile(subLongSeq, pEpsilon)
                     # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize) + " Now buffer is "+ str(timeBuffer))
                     # if (runningTime - testingTimeStart> 40):
                         # if (backwardTimeTimesC_iMinus1<0): 
                     # pyplot.hist(decision_list, bins=30)
                     # pyplot.show()
-                # else:
-                #     suggestedFrameSize = minimal_framesize
             except:
                 suggestedFrameSize = minimal_framesize
 
@@ -269,7 +262,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 1
+number = 3
 
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
@@ -383,5 +376,3 @@ pyplot.legend(  AMLegendTotalSize +
 
 pyplot.title("Target: " + str(pEpsilon))
 pyplot.show()
-
-print("T_experiment: " + str(t_experiment))
