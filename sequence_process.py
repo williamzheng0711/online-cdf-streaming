@@ -31,7 +31,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 4
+whichVideo = 6
 FPS = 30
 
 # Testing Set Size
@@ -144,7 +144,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         suggestedFrameSize = -np.Infinity
 
         delta = runningTime -  frame_prepared_time[singleFrame]
-        # T_i = (1/FPS - delta)
+        T_i = (1/FPS - delta)
         # r_i = T_i * FPS
         
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
@@ -170,8 +170,8 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             try: 
                 if (len(subLongSeq)>30):
                     tempCihat = quantile(subLongSeq, pEpsilon)
-                    throughputEstimate = tempCihat
-                    suggestedFrameSize = throughputEstimate * (1/FPS)
+                    throughputEstimate = tempCihat * (1+FPS*(timeBuffer + T_i))
+                    suggestedFrameSize = throughputEstimate  * (1/FPS)
                     print(runningTime - testingTimeStart)
                     # if (runningTime - testingTimeStart> 0):
                     #     print(C_iMinus1)

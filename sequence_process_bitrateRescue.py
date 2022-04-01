@@ -31,14 +31,12 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 7
+whichVideo = 6
 FPS = 60
 
 # Testing Set Size
-howLongIsVideoInSeconds = 60
+howLongIsVideoInSeconds = 240
 
-# Training Data Size
-timePacketsDataLoad = 4000000
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -103,12 +101,10 @@ for numberA in range(len(networkEnvPacket_AM)):
 ############################################################################
 
 pEpsilon = 0.05
-
-print(mean(sampleThroughputRecord))
-print(quantile(sampleThroughputRecord,pEpsilon))
+pTbuffer_original = 0.08
 
 
-pTbuffer_original = 1/FPS
+
 
 testingTimeStart = packet_level_time_training[-1]
 print("Simulation starts from here in the time trace data " + str(testingTimeStart))
@@ -143,7 +139,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        if (singleFrame % 150 == 0 and estimatingType == "ProbabilityPredict"):
+        if (singleFrame % (20 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
             print("Now is time: " + str(runningTime - testingTimeStart))
         ########################################################################################
 
@@ -176,23 +172,26 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         if (estimatingType == "ProbabilityPredict" ):
             localLenLimit = 60 * FPS
-            lookBackwardHistogramS = utils.generatingBackwardHistogramS(backwardTime= timeBuffer + 1/FPS, 
+            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS = FPS, 
                                                                         int_C=localPLIC,
                                                                         timeSeq=localPLT,
                                                                         currentTime=runningTime, 
                                                                         lenLimit = localLenLimit) 
-            assemble_list = lookBackwardHistogramS
+            assemble_list = lookBackwardHistogramC
             decision_list = assemble_list[ max((len(assemble_list) - localLenLimit),0) : ]
 
             try:
-                backwardTimeTimesC_iMinus1 = decision_list[-1]
+                backwardC_iMinus1 = decision_list[-1]
                 subLongSeq = [ decision_list[i+1] 
                                 for _, i in zip(decision_list,range(len(decision_list))) 
-                                if  i<len(decision_list)-1  and i>=1 and abs((decision_list[i]-backwardTimeTimesC_iMinus1))/backwardTimeTimesC_iMinus1<= 0.05 
+                                if  i<len(decision_list)-1  and i>=1 and 
+                                    abs((decision_list[i]-backwardC_iMinus1))/backwardC_iMinus1<= 0.05 
                             ]
                 
-                if (len(decision_list)>20):
-                    suggestedFrameSize = quantile(subLongSeq, pEpsilon)
+                if (len(decision_list)>10):
+                    quant = quantile(subLongSeq, pEpsilon)
+                    throughputEstimate = quant * ( FPS*(timeBuffer/2 + T_i))
+                    suggestedFrameSize = throughputEstimate * (1/FPS) 
                     # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize) + " Now buffer is "+ str(timeBuffer))
                     # if (runningTime - testingTimeStart> 40):
                         # if (backwardTimeTimesC_iMinus1<0): 
@@ -262,10 +261,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
 
 
-number = 3
+number = 1
 
 mAxis = [5,16,128]
-xAxis =  np.linspace(0.000005, 0.05 ,num=number, endpoint=True)
+xAxis =  np.linspace(0.000005, 0.001 ,num=number, endpoint=True)
 
 
 lenLimit = 600*FPS
