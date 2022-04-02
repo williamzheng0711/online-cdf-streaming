@@ -268,9 +268,10 @@ def F(pilotTime, int_C, timeSeq):
         ge_index = find_ge_index(timeSeq,pilotTime)
     except: 
         ge_index = len(timeSeq) - 1
-    lt_index = find_le_index(timeSeq,pilotTime)
+        
+    lt_index = ge_index - 1
 
-    if (int_C[lt_index] == int_C[ge_index] ==0 or timeSeq[ge_index]-timeSeq[lt_index] == 0):
+    if (int_C[lt_index] == int_C[ge_index] or timeSeq[ge_index]-timeSeq[lt_index] == 0):
         FValue = int_C[lt_index]
     else:
         FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])

@@ -32,7 +32,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 7
+whichVideo = 4
 FPS = 60
 
 # Testing Set Size
@@ -197,7 +197,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                 # pyplot.hist(subLongSeq, bins=30)
                 # pyplot.show()
             else: 
-                suggestedFrameSize = minimal_framesize
+                quant = quantile(decision_list, pEpsilon)
+                throughputEstimate = quant * ( FPS*(timeBuffer + T_i))
+                suggestedFrameSize = throughputEstimate * (1/FPS) 
 
         #######################################################################################
         #################  A.M. Algorithm ################################
@@ -289,7 +291,7 @@ packet_level_time_original = packet_level_time_training
 
 ecmLossRateArray_Buffer = []
 ecmTotalSizeArray_Buffer = []
-bufferOriginalAxis = np.arange(1, 60, step=5)
+bufferOriginalAxis = np.arange(0, 60, step=1)
 
 amLossRateMatrix = [ [0] * len(bufferOriginalAxis)  for _ in range(len(mAxis))]
 amTotalSizeMatrix  = [ [0] * len(bufferOriginalAxis)  for _ in range(len(mAxis))]
