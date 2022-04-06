@@ -152,13 +152,13 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
         #     print(lookBackwardHistogramC)
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
             # Now it's runningTime, we will check all values of F(rT)-F(rT-1/FPS)
+            localLenLimit = 60 * FPS
             lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,
                                                                         timeSeq=packet_level_time,
                                                                         currentTime=runningTime, 
-                                                                        lenLimit = lenLimit) 
+                                                                        lenLimit = localLenLimit) 
             assemble_list = lookBackwardHistogramC
             decision_list = assemble_list[ max((len(assemble_list) -1 - lenLimit),0) : len(assemble_list)]
-
             C_iMinus1 = decision_list[-1]
             subLongSeq = [
                 decision_list[i+1] 
@@ -172,7 +172,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     tempCihat = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = tempCihat * (1+FPS*(timeBuffer + T_i))
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
-                    print(runningTime - testingTimeStart)
+                    # print(runningTime - testingTimeStart)
                     # if (runningTime - testingTimeStart> 0):
                     #     print(C_iMinus1)
                     #     pyplot.hist(subLongSeq, bins=50)

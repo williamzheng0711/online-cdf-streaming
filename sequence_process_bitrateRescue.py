@@ -311,6 +311,8 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
         print("A.M.(M="+str(trackUsed)+"): " +  str(a[0]) + " " + str(count_skipA/(howLongIsVideoInSeconds*FPS)) + " with min-size: " + str(a[3]) )
 
 
+
+
 for x_for_b in bufferOriginalAxis:
     # OLSpred = uploadProcess('dummyUsername2', x_for_b , "OLS", pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], pTrackUsed=0)
     # count_OLS = OLSpred[2]
