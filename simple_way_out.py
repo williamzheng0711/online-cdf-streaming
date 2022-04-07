@@ -8,6 +8,7 @@ import csv
 from math import exp, floor, pi, sin, sqrt
 from multiprocessing.context import ForkProcess
 from operator import index, indexOf, ne
+from struct import pack
 from matplotlib.axis import Axis
 import numpy as np
 from numpy.core.numeric import False_
@@ -31,7 +32,7 @@ import multiLinreg as MLR
 
 B_IN_MB = 1024*1024
 
-whichVideo = 8
+whichVideo = 7
 FPS = 60
 
 # Testing Set Size
@@ -101,6 +102,9 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     packet_level_integral_C, packet_level_time, pBufferTime):
 
     timeBuffer = pBufferTime
+    packet_level_integral_C_inside = packet_level_integral_C
+    packetLevelTimeInside = packet_level_time
+
 
     frame_prepared_time = []
     throughputHistoryLog = pLogCi[ max(0, len(pLogCi) -1 - lenLimit) : len(pLogCi)]
@@ -170,7 +174,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
             try: 
                 if (len(subLongSeq)>30):
                     quantValue = quantile(subLongSeq, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(timeBuffer + T_i))
+                    throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
                     # if (runningTime - testingTimeStart> 0):
                     #     print(C_iMinus1)
@@ -178,7 +182,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     #     pyplot.show()
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(timeBuffer + T_i))
+                    throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
             except:
                 suggestedFrameSize = minimal_framesize
@@ -214,14 +218,14 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
 
         # Until now, the suggestedFrameSize is fixed.
         #######################################################################################
-        [uploadFinishTime,packet_level_integral_C, packet_level_time ] = utils.packet_level_frame_upload_finish_time( 
+        [uploadFinishTime,packet_level_integral_C_inside, packetLevelTimeInside ] = utils.packet_level_frame_upload_finish_time( 
                                                                         runningTime= runningTime,
                                                                         packet_level_data= networkEnvPacket,
                                                                         packet_level_timestamp= networkEnvTime,
                                                                         framesize= thisFrameSize,
                                                                         toUsePacketRecords = (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"),
-                                                                        packet_level_integral_C = packet_level_integral_C,
-                                                                        packet_level_time = packet_level_time,)
+                                                                        packet_level_integral_C = packet_level_integral_C_inside,
+                                                                        packet_level_time = packetLevelTimeInside,)
 
         # We record the sent frames' information in this array.
         if (uploadFinishTime<=howLongIsVideoInSeconds + testingTimeStart):
@@ -244,7 +248,7 @@ number = 3
 mAxis = [5,16,128]
 xAxis =  np.linspace(0.000005, 0.015 ,num=number, endpoint=True)
 
-lenLimit = 400*FPS
+lenLimit = PreRunTime * FPS
 bigHistorySequence = sampleThroughputRecord[ max((len(sampleThroughputRecord)-lenLimit),0):len(sampleThroughputRecord)]
 
 ecmLossRateArray = []
@@ -269,7 +273,7 @@ for x_for_b in xAxis:
                         pTrackUsed=0, 
                         packet_level_integral_C=packet_level_integral_C_original, 
                         packet_level_time=packet_level_time_original,
-                        pBufferTime = 0)
+                        pBufferTime = 1/FPS)
     count_skipB = b[2]
     ecmLossRateArray.append(count_skipB/(howLongIsVideoInSeconds*FPS))
     ecmTotalSizeArray.append(b[0])
@@ -279,7 +283,7 @@ for x_for_b in xAxis:
                         pLogCi=bigHistorySequence , forTrain=False, pForgetList=[], 
                         pTrackUsed=0, 
                         packet_level_time=[], packet_level_integral_C=[],
-                        pBufferTime = 0)
+                        pBufferTime = 1/FPS)
     count_skipM = m[2]
     minimalLossRateArray.append(count_skipM/(howLongIsVideoInSeconds*FPS))
     minimalSizeArray.append(m[0])
@@ -335,7 +339,7 @@ pyplot.title("Target: " + str(pEpsilon))
 
 
 # bufferSizeArray = np.arange(0, FPS, step = 1)
-bufferSizeArray = [0,1,2,3]
+bufferSizeArray = [0,1,2,3,4,5,6]
 ECM_LR_vs_BT = []
 ECM_Size_vs_BT = []
 Min_LR_vs_BT = []
