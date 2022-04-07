@@ -13,24 +13,6 @@ import math
 import random
 import bisect
 
-from sklearn.metrics import top_k_accuracy_score
-
-B_IN_MB = 1000.0*1000.0
-
-def index_of_first(cdn_arrive_time, playingTime, pRealFrameNo ):
-    for i,v in enumerate(cdn_arrive_time):
-        if ( cdn_arrive_time[i+1] > playingTime and  cdn_arrive_time[i] <= playingTime    ):
-            return i
-    return None
-
-
-def index_first_equal(number,list ):
-    for i,v in enumerate(list):
-        if (  v == number  ):
-            return i
-    return None
-
-
 def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInterval ):
     shift = math.floor( runningTime/networkSamplingInterval )
     i = 0 
@@ -61,12 +43,21 @@ def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInte
     print(size)
 
 
-def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize,
-                                            packet_level_integral_C, packet_level_time, toUsePacketRecords ):
+def packet_level_frame_upload_finish_time( runningTime, 
+                                            packet_level_data, 
+                                            packet_level_timestamp, 
+                                            framesize,
+                                            packet_level_integral_C, 
+                                            packet_level_time, 
+                                            toUsePacketRecords ):
+
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     i = 0 
 
+    original_framesize = framesize
+
     while (framesize > 0): 
+
         if (i == 0):
             i = 1
             s_temp = framesize - packet_level_data[shift]
@@ -75,6 +66,7 @@ def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packe
                 packet_level_time.append(packet_level_timestamp[shift])
             if (s_temp<=0):
                 t_out = packet_level_timestamp[shift]
+                # print(str(original_framesize/(t_out-runningTime)) )
                 return [t_out, packet_level_integral_C, packet_level_time]
             framesize = s_temp
         else: 
@@ -86,6 +78,7 @@ def packet_level_frame_upload_finish_time( runningTime, packet_level_data, packe
                 t_out = packet_level_timestamp[shift]
                 return [t_out,packet_level_integral_C, packet_level_time]
             framesize = s_temp
+
         shift = shift +1
 
 def expectationFunction(binsMe,probability,past,marginal):
@@ -230,7 +223,9 @@ def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
     pilot = timeSeq[-1]
     result = []
     while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
-        result.insert(0, (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS )
+        speed = (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS
+        result.insert(0, speed )
+        # print(speed)
         pilot = pilot - 1/FPS
     
     return result
@@ -276,18 +271,3 @@ def F(pilotTime, int_C, timeSeq):
     else:
         FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
     return FValue
-
-def generatingBackwardHistogramS(backwardTime, int_C, timeSeq, currentTime, lenLimit):
-    shift = find_le_index(a= timeSeq, x= currentTime)
-    # print(shift)
-    pilot = timeSeq[shift]
-    result = []
-    while (len(result)< lenLimit and pilot-backwardTime>timeSeq[0]):
-        F_big = F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)
-        F_small = F(pilotTime =pilot - backwardTime, int_C=int_C, timeSeq=timeSeq)
-        total_size_sent_interval = F_big - F_small
-        if (total_size_sent_interval <0): print(str(currentTime) + " is the current time and " + str(pilot))
-        result.insert(0, total_size_sent_interval)
-        pilot = pilot - backwardTime
-    
-    return result
