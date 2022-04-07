@@ -152,7 +152,9 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                     zip(decision_list,range(len(decision_list))) 
                 if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
             # print("C_i-1 =" +str(C_iMinus1) + " ///// " + str(mean(decision_list)) +" | "+ str(mean(subLongSeq)) + " | " + str(mean(throughputHistoryLog)) ) 
-                    
+            
+            # print(len(subLongSeq))
+
             try: 
                 if (len(subLongSeq)>30):
                     quantValue = quantile(subLongSeq, pEpsilon)
@@ -192,14 +194,16 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
 
         # Until now, the suggestedFrameSize is fixed.
         #######################################################################################
-        [uploadFinishTime,packet_level_integral_C_inside, packetLevelTimeInside ] = utils.packet_level_frame_upload_finish_time( 
-                                                                        runningTime= runningTime,
-                                                                        packet_level_data= networkEnvPacket,
-                                                                        packet_level_timestamp= networkEnvTime,
-                                                                        framesize= thisFrameSize,
-                                                                        toUsePacketRecords = (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"),
-                                                                        packet_level_integral_C = packet_level_integral_C_inside,
-                                                                        packet_level_time = packetLevelTimeInside,)
+        [uploadFinishTime,
+        packet_level_integral_C_inside, 
+        packetLevelTimeInside] = utils.packet_level_frame_upload_finish_time( 
+                                                    runningTime= runningTime,
+                                                    packet_level_data= networkEnvPacket,
+                                                    packet_level_timestamp= networkEnvTime,
+                                                    framesize= thisFrameSize,
+                                                    toUsePacketRecords = (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"),
+                                                    packet_level_integral_C = packet_level_integral_C_inside,
+                                                    packet_level_time = packetLevelTimeInside,)
 
         # We record the sent frames' information in this array.
         if (uploadFinishTime<=howLongIsVideoInSeconds + testingTimeStart):
