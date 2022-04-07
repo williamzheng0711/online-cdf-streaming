@@ -10,7 +10,7 @@ import matplotlib.pyplot as pyplot
 from numpy import linalg as LA, quantile
 
 
-howmany_Bs_IN_1MB = 1024*1024
+howmany_bs_IN_1MB = 1024*1024*8
 
 whichVideo = 13
 FPS = 60
@@ -42,9 +42,9 @@ for suffixNum in range(whichVideo,whichVideo+1):
             nowFileTime = float(parse[0]) 
             if (nowFileTime - initialTime) < PreRunTime:
                 networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
+                networkEnvPacket.append( float(parse[1]) / howmany_bs_IN_1MB ) 
                 networkEnvTime_AM.append(nowFileTime - initialTime)
-                networkEnvPacket_AM.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
+                networkEnvPacket_AM.append( float(parse[1]) / howmany_bs_IN_1MB ) 
                 if (len(packet_level_integral_C_training)==0):
                     packet_level_integral_C_training.append(0 )
                 else:
@@ -53,7 +53,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
                 count = count  +1 
             elif (nowFileTime - initialTime) < 5*(PreRunTime):
                 networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
+                networkEnvPacket.append( float(parse[1]) / howmany_bs_IN_1MB ) 
                 count = count  +1 
                 
 print("Before using time-packet, is time order correct? "+ str(packet_level_time_training == sorted(packet_level_time_training, reverse=False)))
@@ -76,7 +76,7 @@ for numberA in range(len(networkEnvPacket_AM)):
 ############################################################################
 print(mean(sampleThroughputRecord))
 print("This is mean above")
-
+print(packet_level_integral_C_training[-1]/packet_level_time_training[-1])
 
 pEpsilon = 0.05
 testingTimeStart = timeTrack
@@ -144,8 +144,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                                                                         timeSeq=packet_level_time,
                                                                         currentTime=runningTime, 
                                                                         lenLimit = localLenLimit) 
-            assemble_list = lookBackwardHistogramC
-            decision_list = assemble_list[ max((len(assemble_list) -1 - lenLimit),0) : len(assemble_list)]
+            decision_list = lookBackwardHistogramC[ max((len(lookBackwardHistogramC) -1 - lenLimit),0) : len(lookBackwardHistogramC)]
             C_iMinus1 = decision_list[-1]
 
             subLongSeq = [
@@ -153,6 +152,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                 for _, i in 
                     zip(decision_list,range(len(decision_list))) 
                 if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
+            print(str(mean(decision_list)) +" | "+ str(mean(subLongSeq))) 
                     
             try: 
                 if (len(subLongSeq)>30):
@@ -167,6 +167,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                     quantValue = quantile(decision_list, pEpsilon)
                     throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
+
             except:
                 suggestedFrameSize = minimal_framesize
 
