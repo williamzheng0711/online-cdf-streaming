@@ -30,7 +30,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 300
+PreRunTime = 400
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -104,7 +104,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
     uploadDuration = 0
 
     # initialize the C_0 hat (in MB), which is a "default guess"
-    throughputEstimate = (1/FPS) * mean(sampleThroughputRecord) 
+    throughputEstimate = mean(sampleThroughputRecord) 
     count_skip = 0
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
@@ -116,7 +116,6 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
             break 
 
-        
         if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
             # 上一次的傳輸太快了，導致新的幀還沒生成出來
             # Then we need to wait until singleframe is generated and available to send.
@@ -137,7 +136,9 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         T_i = max( (1/FPS - delta),0 )
         
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-        if (estimatingType == "ProbabilityPredict"):
+        if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
+
+
             localLenLimit = 60 * FPS
             lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,
                                                                         timeSeq=packet_level_time,
@@ -145,25 +146,23 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                                                                         lenLimit = localLenLimit) 
             decision_list = lookBackwardHistogramC[ max((len(lookBackwardHistogramC) -1 - lenLimit),0) : len(lookBackwardHistogramC)]
             C_iMinus1 = decision_list[-1]
+            if (singleFrame == 0):
+                C_iMinus1 = mean(decision_list)
 
             subLongSeq = [
                 decision_list[i+1] 
-                for _, i in 
-                    zip(decision_list,range(len(decision_list))) 
-                if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
+                for _, i in zip(decision_list,range(len(decision_list))) 
+                    if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
             # print("C_i-1 =" +str(C_iMinus1) + " ///// " + str(mean(decision_list)) +" | "+ str(mean(subLongSeq)) + " | " + str(mean(throughputHistoryLog)) ) 
-            
             # print(len(subLongSeq))
-
+            pyplot.hist(subLongSeq, bins=50)
+            pyplot.show()
+            
             try: 
                 if (len(subLongSeq)>30):
                     quantValue = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
-                    if (runningTime - testingTimeStart> 0):
-                        print(C_iMinus1)
-                        pyplot.hist(subLongSeq, bins=200)
-                        pyplot.show()
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
@@ -255,7 +254,7 @@ for bufferTime in bufferSizeArray:
                         minimal_framesize= a_small_minimal_framesize, 
                         estimatingType = "ProbabilityPredict", 
                         pLogCi = bigHistorySequence , 
-                        pTrackUsed=0, 
+                        pTrackUsed=5, 
                         packet_level_integral_C=packet_level_integral_C_original, 
                         packet_level_time=packet_level_time_original,
                         pBufferTime = bufferTime/FPS)
