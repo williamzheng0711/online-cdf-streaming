@@ -3,35 +3,14 @@
 #     The Chinese University of Hong Kong
 #     Mar. 9, 2022
 
-from cmath import e
-import csv
-from math import exp, floor, pi, sin, sqrt
-from multiprocessing.context import ForkProcess
-from operator import index, indexOf, ne
-from struct import pack
-from matplotlib.axis import Axis
 import numpy as np
-from numpy.core.numeric import False_
-from scipy.stats import laplace
-from scipy.stats import laplace_asymmetric
-from scipy.stats.morestats import boxcox_normmax
 from numpy.core.fromnumeric import argmax, mean, size, var
-from numpy.lib.function_base import append, kaiser
-from simple_way_out import B_IN_MB
 import utils as utils
-from torch.autograd import Variable
-import time as tm
-import pandas as pd
 import matplotlib.pyplot as pyplot
-from statistics import NormalDist
 from numpy import linalg as LA, quantile
-from scipy.stats import norm, gaussian_kde
-from sklearn.neighbors import KernelDensity
-import multiLinreg as MLR
 
 
-
-B_IN_MB = 1024*1024
+howmany_Bs_IN_1MB = 1024*1024
 
 whichVideo = 13
 FPS = 60
@@ -51,7 +30,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 300
+PreRunTime = 200
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -63,9 +42,9 @@ for suffixNum in range(whichVideo,whichVideo+1):
             nowFileTime = float(parse[0]) 
             if (nowFileTime - initialTime) < PreRunTime:
                 networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
+                networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
                 networkEnvTime_AM.append(nowFileTime - initialTime)
-                networkEnvPacket_AM.append( float(parse[1]) / B_IN_MB ) 
+                networkEnvPacket_AM.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
                 if (len(packet_level_integral_C_training)==0):
                     packet_level_integral_C_training.append(0 )
                 else:
@@ -74,7 +53,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
                 count = count  +1 
             elif (nowFileTime - initialTime) < 5*(PreRunTime):
                 networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
+                networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1MB ) 
                 count = count  +1 
                 
 print("Before using time-packet, is time order correct? "+ str(packet_level_time_training == sorted(packet_level_time_training, reverse=False)))
@@ -95,11 +74,14 @@ for numberA in range(len(networkEnvPacket_AM)):
         amount = 0
 
 ############################################################################
+print(mean(sampleThroughputRecord))
+print("This is mean above")
+
 
 pEpsilon = 0.05
 testingTimeStart = timeTrack
 
-def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, pTrackUsed, pForgetList, 
+def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed, 
                     packet_level_integral_C, packet_level_time, pBufferTime):
 
     timeBuffer = pBufferTime
@@ -179,7 +161,7 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
                     # if (runningTime - testingTimeStart> 0):
                     #     print(C_iMinus1)
-                    #     pyplot.hist(subLongSeq, bins=50)
+                    #     pyplot.hist(subLongSeq, bins=200)
                     #     pyplot.show()
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
@@ -269,7 +251,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "purple"]
-bufferSizeArray = np.arange(1, 11, step = 1)
+bufferSizeArray = np.arange(1, 11, step = 3)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -277,12 +259,9 @@ Minimal_Bitrate = []
 
 for bufferTime in bufferSizeArray:
     ConditionalProposed = uploadProcess(
-                        user_id = 'dummyUsername2', 
                         minimal_framesize= xAxis[0], 
                         estimatingType = "ProbabilityPredict", 
                         pLogCi = bigHistorySequence , 
-                        forTrain = False, 
-                        pForgetList=[], 
                         pTrackUsed=0, 
                         packet_level_integral_C=packet_level_integral_C_original, 
                         packet_level_time=packet_level_time_original,
@@ -291,15 +270,13 @@ for bufferTime in bufferSizeArray:
     count_skip_conditional = ConditionalProposed[2]
     Cond_Lossrate.append(count_skip_conditional/(howLongIsVideoInSeconds*FPS))
     Cond_Bitrate.append(ConditionalProposed[0]/howLongIsVideoInSeconds)
-    print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed[0]) + " (Mbps). Loss rate: " + str(count_skip_conditional/(howLongIsVideoInSeconds*FPS)))
+    print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed[0]) + 
+        " (MB/s). Loss rate: " + str(count_skip_conditional/(howLongIsVideoInSeconds*FPS)) )
 
     MinimalFrameScheme = uploadProcess(
-                        user_id = 'dummyUsername2', 
                         minimal_framesize = xAxis[0], 
                         estimatingType = "MinimalFrame", 
                         pLogCi = bigHistorySequence, 
-                        forTrain=False, 
-                        pForgetList=[], 
                         pTrackUsed=0, 
                         packet_level_time=[], 
                         packet_level_integral_C=[],
@@ -308,8 +285,10 @@ for bufferTime in bufferSizeArray:
     count_skip_minimal = MinimalFrameScheme[2]
     Minimal_Lossrate.append(count_skip_minimal/(howLongIsVideoInSeconds*FPS))
     Minimal_Bitrate.append(MinimalFrameScheme[0] / howLongIsVideoInSeconds )
-    print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme[0]) + " (Mbps). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
-    print("----------------------------")
+    print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme[0]) + 
+        " (MB/s). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
+
+    print("-------------------------------------------------")
 
 
 AM_LossRateMatrix = [ [0] * len(bufferSizeArray)  for _ in range(len(mAxis))]
@@ -318,13 +297,10 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
     for bufferTimeInArray, iy in zip(bufferSizeArray, range(len(bufferSizeArray))):
         
         Arithmetic_Mean = uploadProcess( 
-                            user_id = 'dummyUsername1', 
                             minimal_framesize = xAxis[0], 
                             estimatingType = "A.M.", 
                             pLogCi = bigHistorySequence, 
-                            forTrain=False, 
                             pTrackUsed=trackUsed, 
-                            pForgetList=[], 
                             packet_level_time=[],
                             packet_level_integral_C=[],
                             pBufferTime = bufferTimeInArray/FPS)
@@ -332,18 +308,24 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
         count_skip_AM = Arithmetic_Mean[2]
         AM_LossRateMatrix[ix][iy] = count_skip_AM/(howLongIsVideoInSeconds*FPS)
         AM_BitrateMatrix[ix][iy] = Arithmetic_Mean[0] / howLongIsVideoInSeconds 
-        print("Arithmetic Mean. Bitrate :(M = "+str(trackUsed)+"): " + str(Arithmetic_Mean[0]) + " (Mbps). Loss rate: " + str(count_skip_AM/(howLongIsVideoInSeconds*FPS)))
+        print("Arithmetic Mean. Bitrate :(M = "+str(trackUsed)+"): " + str(Arithmetic_Mean[0]) + 
+            " (MB/s). Loss rate: " + str(count_skip_AM/(howLongIsVideoInSeconds*FPS)))
 
 
-pyplot.xlabel("Bitrate (in Mbps)")
+pyplot.xlabel("Bitrate (in MB/s)")
 pyplot.ylabel("Loss rate")
-for ix in range(len(mAxis)):
-    pyplot.plot(AM_BitrateMatrix[ix], AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
-pyplot.plot(Minimal_Bitrate, Minimal_Lossrate, '-s', color = "black", markersize = 1, linewidth = 1)
+# for ix in range(len(mAxis)):
+#     pyplot.plot(AM_BitrateMatrix[ix], AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+# pyplot.plot(Minimal_Bitrate, Minimal_Lossrate, '-s', color = "black", markersize = 1, linewidth = 1)
 pyplot.plot(Cond_Bitrate, Cond_Lossrate, '-s', color='blue',markersize=1, linewidth=1)
+
+for x_axis,y_axis,bufferInteger in zip(Cond_Bitrate, Cond_Lossrate,bufferSizeArray):
+    pyplot.annotate("buffer: " + str(bufferInteger)+"/FPS",x_axis, y_axis )
+
 AMLegend = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
             ["Empirical Condt'l"], 
             loc="best")
+
 pyplot.show()
