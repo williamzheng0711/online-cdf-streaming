@@ -122,6 +122,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
             runningTime = frame_prepared_time[singleFrame]
         
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
+            print("Some frame skipped!")
             count_skip = count_skip + 1
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
@@ -139,21 +140,23 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
 
 
-            localLenLimit = 60 * FPS
-            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,
+            localLenLimit = 120 * FPS
+            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C_inside,
                                                                         timeSeq=packet_level_time,
                                                                         currentTime=runningTime, 
                                                                         lenLimit = localLenLimit) 
             decision_list = lookBackwardHistogramC[ max((len(lookBackwardHistogramC) -1 - lenLimit),0) : len(lookBackwardHistogramC)]
             C_iMinus1 = decision_list[-1]
-            if (singleFrame == 0):
-                C_iMinus1 = mean(decision_list)
 
             subLongSeq = [
                 decision_list[i+1] 
                 for _, i in zip(decision_list,range(len(decision_list))) 
                     if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
-            # print("C_i-1 =" +str(C_iMinus1) + " ///// " + str(mean(decision_list)) +" | "+ str(mean(subLongSeq)) + " | " + str(mean(throughputHistoryLog)) ) 
+            print("C_i-1 =" +str(C_iMinus1) + 
+                    " | mean(decisionList) = " + str(mean(decision_list)) + 
+                    " | mean(subLongSeq) = "+ str(mean(subLongSeq)) + 
+                    " | mean(throughputLog) = " + str(mean(throughputHistoryLog)) +
+                    " | C_i-1_AM = "+ str(throughputHistoryLog[-1]) )  
             # print(len(subLongSeq))
             pyplot.hist(subLongSeq, bins=50)
             pyplot.show()
@@ -161,11 +164,11 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
             try: 
                 if (len(subLongSeq)>30):
                     quantValue = quantile(subLongSeq, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
+                    throughputEstimate = quantValue * (FPS*(max(timeBuffer/2 + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
+                    throughputEstimate = quantValue * (FPS*(max(timeBuffer/2 + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
 
             except:
