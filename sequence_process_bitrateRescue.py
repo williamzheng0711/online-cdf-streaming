@@ -30,9 +30,9 @@ import multiLinreg as MLR
 
 
 
-B_IN_MB = 1024*1024
+B_IN_MB = 1024*1024/8
 
-whichVideo = 4
+whichVideo = 13
 FPS = 60
 
 # Testing Set Size
@@ -192,10 +192,10 @@ def uploadProcess(user_id, minimal_framesize, estimatingType, pLogCi, forTrain, 
                 throughputEstimate = quant * ( FPS*(timeBuffer + T_i))
                 suggestedFrameSize = throughputEstimate * (1/FPS) 
                 # print("計時器: " + str(runningTime - testingTimeStart) + " Decision size: " + str(suggestedFrameSize) + " Now buffer is "+ str(timeBuffer))
-                # # if (runningTime - testingTimeStart> 40):
-                #     # if (backwardTimeTimesC_iMinus1<0): 
-                # pyplot.hist(subLongSeq, bins=30)
-                # pyplot.show()
+                # if (runningTime - testingTimeStart> 40):
+                    # if (backwardTimeTimesC_iMinus1<0): 
+                pyplot.hist(subLongSeq, bins=30)
+                pyplot.show()
             else: 
                 quant = quantile(decision_list, pEpsilon)
                 throughputEstimate = quant * ( FPS*(timeBuffer + T_i))

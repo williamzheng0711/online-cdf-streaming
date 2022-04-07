@@ -43,44 +43,6 @@ def frame_upload_done_time( runningTime, networkEnvBW, size, networkSamplingInte
     print(size)
 
 
-def packet_level_frame_upload_finish_time( runningTime, 
-                                            packet_level_data, 
-                                            packet_level_timestamp, 
-                                            framesize,
-                                            packet_level_integral_C, 
-                                            packet_level_time, 
-                                            toUsePacketRecords ):
-
-    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
-    i = 0 
-
-    original_framesize = framesize
-
-    while (framesize > 0): 
-
-        if (i == 0):
-            i = 1
-            s_temp = framesize - packet_level_data[shift]
-            if (toUsePacketRecords):
-                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-                packet_level_time.append(packet_level_timestamp[shift])
-            if (s_temp<=0):
-                t_out = packet_level_timestamp[shift]
-                # print(str(original_framesize/(t_out-runningTime)) )
-                return [t_out, packet_level_integral_C, packet_level_time]
-            framesize = s_temp
-        else: 
-            s_temp = framesize - packet_level_data[shift]
-            if (toUsePacketRecords):
-                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-                packet_level_time.append(packet_level_timestamp[shift])
-            if (s_temp<=0): 
-                t_out = packet_level_timestamp[shift]
-                return [t_out,packet_level_integral_C, packet_level_time]
-            framesize = s_temp
-
-        shift = shift +1
-
 def expectationFunction(binsMe,probability,past,marginal):
     result = 0
     p1 = random.uniform(0, 1)
@@ -219,15 +181,20 @@ def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceData
     
         return [model,tobeDeleted]
 
-def generatingBackwardHistogram(FPS,int_C, timeSeq, currentTime, lenLimit):
-    pilot = timeSeq[-1]
+def generatingBackwardHistogram(FPS,
+                                int_C, 
+                                timeSeq, 
+                                currentTime, 
+                                lenLimit):
+    if (timeSeq[-1]<currentTime):
+        currentTime = timeSeq[-1]
+    pilot = currentTime
     result = []
     while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
-        speed = (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq))*FPS
+        speed = (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq)) * FPS
         result.insert(0, speed )
         # print(speed)
         pilot = pilot - 1/FPS
-    
     return result
 
 def find_lt_index(a, x):
@@ -266,8 +233,49 @@ def F(pilotTime, int_C, timeSeq):
         
     lt_index = ge_index - 1
 
-    if (int_C[lt_index] == int_C[ge_index] or timeSeq[ge_index]-timeSeq[lt_index] == 0):
+    if (int_C[lt_index] == int_C[ge_index] or timeSeq[ge_index] == timeSeq[lt_index]):
         FValue = int_C[lt_index]
     else:
         FValue = int_C[lt_index] + (int_C[ge_index]-int_C[lt_index])/(timeSeq[ge_index]-timeSeq[lt_index]) * (pilotTime-timeSeq[lt_index])
     return FValue
+
+
+
+
+def packet_level_frame_upload_finish_time( runningTime, 
+                                            packet_level_data, 
+                                            packet_level_timestamp, 
+                                            framesize,
+                                            packet_level_integral_C, 
+                                            packet_level_time, 
+                                            toUsePacketRecords ):
+
+    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
+    i = 0 
+
+    original_framesize = framesize
+
+    while (framesize > 0): 
+
+        if (i == 0):
+            i = 1
+            s_temp = framesize - packet_level_data[shift]
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
+            if (s_temp<=0):
+                t_out = packet_level_timestamp[shift]
+                # print(str(original_framesize/(t_out-runningTime)) )
+                return [t_out, packet_level_integral_C, packet_level_time]
+            framesize = s_temp
+        else: 
+            s_temp = framesize - packet_level_data[shift]
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
+            if (s_temp<=0): 
+                t_out = packet_level_timestamp[shift]
+                return [t_out,packet_level_integral_C, packet_level_time]
+            framesize = s_temp
+
+        shift = shift +1

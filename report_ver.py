@@ -7,13 +7,13 @@ import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
-from numpy import linalg as quantile
+from numpy import quantile
 
 
 howmany_Bs_IN_1Mb = 1024*1024/8
 
 whichVideo = 13
-FPS = 60
+FPS = 30
 
 # Testing Set Size
 howLongIsVideoInSeconds = 120
@@ -116,21 +116,17 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         if (runningTime - testingTimeStart > howLongIsVideoInSeconds):
             break 
 
-        if (singleFrame >0 and ( runningTime < frame_prepared_time[singleFrame])): 
-            # 上一次的傳輸太快了，導致新的幀還沒生成出來
+        if (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame] ): 
             # Then we need to wait until singleframe is generated and available to send.
             runningTime = frame_prepared_time[singleFrame]
         
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
-            print("Some frame skipped!")
+            # print("Some frame skipped!")
             count_skip = count_skip + 1
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
         #######################################################################################
-        # Anyway, from now on, the uploader is ready to send singleFrame
-        # In this part, we determine what is the suggestedFrameSize 
-        # We initialize the guess as minimal_framesize
         suggestedFrameSize = -np.Infinity
 
         delta = runningTime -  frame_prepared_time[singleFrame]
@@ -139,40 +135,41 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
 
+            # print(runningTime)
+            # print(packetLevelTimeInside[-1])
 
             localLenLimit = 120 * FPS
-            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C_inside,
-                                                                        timeSeq=packet_level_time,
-                                                                        currentTime=runningTime, 
-                                                                        lenLimit = localLenLimit) 
+            lookBackwardHistogramC = utils.generatingBackwardHistogram( FPS = FPS, 
+                                                                        int_C = packet_level_integral_C_inside,
+                                                                        timeSeq = packetLevelTimeInside,
+                                                                        currentTime = runningTime, 
+                                                                        lenLimit = localLenLimit, ) 
+
             decision_list = lookBackwardHistogramC[ max((len(lookBackwardHistogramC) -1 - lenLimit),0) : len(lookBackwardHistogramC)]
-            C_iMinus1 = decision_list[-1]
+            C_iMinus1 = mean(decision_list[len(decision_list)-5:len(decision_list)])
 
             subLongSeq = [
                 decision_list[i+1] 
                 for _, i in zip(decision_list,range(len(decision_list))) 
                     if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
-            print("C_i-1 =" +str(C_iMinus1) + 
-                    " | mean(decisionList) = " + str(mean(decision_list)) + 
-                    " | mean(subLongSeq) = "+ str(mean(subLongSeq)) + 
-                    " | mean(throughputLog) = " + str(mean(throughputHistoryLog)) +
-                    " | C_i-1_AM = "+ str(throughputHistoryLog[-1]) )  
-            # print(len(subLongSeq))
-            pyplot.hist(subLongSeq, bins=50)
-            pyplot.show()
             
-            try: 
-                if (len(subLongSeq)>30):
-                    quantValue = quantile(subLongSeq, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(max(timeBuffer/2 + T_i, 1/FPS) ) )
-                    suggestedFrameSize = throughputEstimate  * (1/FPS)
-                else:
-                    quantValue = quantile(decision_list, pEpsilon)
-                    throughputEstimate = quantValue * (FPS*(max(timeBuffer/2 + T_i, 1/FPS) ) )
-                    suggestedFrameSize = throughputEstimate  * (1/FPS)
+            # print("C_i-1 =" +str(C_iMinus1) + 
+            #         " | mean(decisionList) = " + str(mean(decision_list)) + 
+            #         " | mean(subLongSeq) = "+ str(mean(subLongSeq)) + 
+            #         " | mean(throughputLog) = " + str(mean(throughputHistoryLog)) +
+            #         " | C_i-1_AM = "+ str(throughputHistoryLog[-1]) )  
+            
+            if (len(subLongSeq)>30):
+                quantValue = quantile(subLongSeq, pEpsilon)
+                throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
+                suggestedFrameSize = throughputEstimate  * (1/FPS)
+                # pyplot.hist(subLongSeq, bins=50)
+                # pyplot.show()
+            else:
+                quantValue = quantile(decision_list, pEpsilon)
+                throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
+                suggestedFrameSize = throughputEstimate  * (1/FPS)
 
-            except:
-                suggestedFrameSize = minimal_framesize
 
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
@@ -187,10 +184,10 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         
-        elif (estimatingType == "Marginal"):
-            lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
-            assemble_list = throughputHistoryLog + lookBackwardHistogramC
-            decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
+        # elif (estimatingType == "Marginal"):
+        #     lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
+        #     assemble_list = throughputHistoryLog + lookBackwardHistogramC
+        #     decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
 
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
@@ -243,7 +240,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "purple"]
-bufferSizeArray = np.arange(1, 20, step = 1)
+bufferSizeArray = np.arange(1, 10, step = 1)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -309,9 +306,9 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
 
 pyplot.xlabel("Bitrate (in MB/s)")
 pyplot.ylabel("Loss rate")
-# for ix in range(len(mAxis)):
-#     pyplot.plot(AM_BitrateMatrix[ix], AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
-# pyplot.plot(Minimal_Bitrate, Minimal_Lossrate, '-s', color = "black", markersize = 1, linewidth = 1)
+for ix in range(len(mAxis)):
+    pyplot.plot(AM_BitrateMatrix[ix], AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
+pyplot.plot(Minimal_Bitrate, Minimal_Lossrate, '-s', color = "black", markersize = 1, linewidth = 1)
 pyplot.plot(Cond_Bitrate, Cond_Lossrate, '-s', color='blue',markersize=1, linewidth=1)
 
 for x_axis,y_axis,bufferInteger in zip(Cond_Bitrate, Cond_Lossrate,bufferSizeArray):
