@@ -4,10 +4,10 @@
 #     Mar. 9, 2022
 
 import numpy as np
-from numpy.core.fromnumeric import argmax, mean, size, var
+from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
-from numpy import linalg as LA, quantile
+from numpy import linalg as quantile
 
 
 howmany_Bs_IN_1Mb = 1024*1024/8
@@ -158,10 +158,10 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                     quantValue = quantile(subLongSeq, pEpsilon)
                     throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
                     suggestedFrameSize = throughputEstimate  * (1/FPS)
-                    # if (runningTime - testingTimeStart> 0):
-                    #     print(C_iMinus1)
-                    #     pyplot.hist(subLongSeq, bins=200)
-                    #     pyplot.show()
+                    if (runningTime - testingTimeStart> 0):
+                        print(C_iMinus1)
+                        pyplot.hist(subLongSeq, bins=200)
+                        pyplot.show()
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
@@ -237,7 +237,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "purple"]
-bufferSizeArray = np.arange(1, 10, step = 1)
+bufferSizeArray = np.arange(1, 20, step = 1)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -275,7 +275,7 @@ for bufferTime in bufferSizeArray:
     Minimal_Lossrate.append(count_skip_minimal/(howLongIsVideoInSeconds*FPS))
     Minimal_Bitrate.append(MinimalFrameScheme[0] / howLongIsVideoInSeconds )
     print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme[0] / howLongIsVideoInSeconds) + 
-        " (MB/s). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
+        " (Mbps). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
 
     print("-------------------------------------------------")
 
@@ -298,7 +298,7 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
         AM_LossRateMatrix[ix][iy] = count_skip_AM/(howLongIsVideoInSeconds*FPS)
         AM_BitrateMatrix[ix][iy] = Arithmetic_Mean[0] / howLongIsVideoInSeconds 
         print("Arithmetic Mean. Bitrate :(M = "+str(trackUsed)+"): " + str(Arithmetic_Mean[0]/howLongIsVideoInSeconds) + 
-            " (MB/s). Loss rate: " + str(count_skip_AM/(howLongIsVideoInSeconds*FPS)))
+            " (Mbps). Loss rate: " + str(count_skip_AM/(howLongIsVideoInSeconds*FPS)))
 
 
 pyplot.xlabel("Bitrate (in MB/s)")
