@@ -3,6 +3,7 @@
 #     The Chinese University of Hong Kong
 #     Mar. 9, 2022
 
+from concurrent.futures import thread
 import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
@@ -13,7 +14,7 @@ from numpy import quantile
 howmany_Bs_IN_1Mb = 1024*1024/8
 
 whichVideo = 13
-FPS = 30
+FPS = 60
 
 # Testing Set Size
 howLongIsVideoInSeconds = 120
@@ -30,7 +31,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 400
+PreRunTime = 120
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -79,6 +80,8 @@ print("This is mean above (Mbps)")
 
 pEpsilon = 0.05
 testingTimeStart = timeTrack
+
+all_intC = np.cumsum(networkEnvPacket)
 
 def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed, 
                     packet_level_integral_C, packet_level_time, pBufferTime):
@@ -135,40 +138,30 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
 
-            # print(runningTime)
-            # print(packetLevelTimeInside[-1])
-
-            localLenLimit = 120 * FPS
-            lookBackwardHistogramC = utils.generatingBackwardHistogram( FPS = FPS, 
-                                                                        int_C = packet_level_integral_C_inside,
-                                                                        timeSeq = packetLevelTimeInside,
-                                                                        currentTime = runningTime, 
-                                                                        lenLimit = localLenLimit, ) 
-
-            decision_list = lookBackwardHistogramC[ max((len(lookBackwardHistogramC) -1 - lenLimit),0) : len(lookBackwardHistogramC)]
-            C_iMinus1 = mean(decision_list[len(decision_list)-5:len(decision_list)])
+            localLenLimit = 60 * FPS
+            lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
+                                                                    int_C = all_intC,
+                                                                    timeSeq = networkEnvTime,
+                                                                    currentTime = runningTime, 
+                                                                    lenLimit = localLenLimit, ) 
+            
+            decision_list = lookBackwardHistogramS
+            Ideal_S_iMinus1 = decision_list[-1]
 
             subLongSeq = [
                 decision_list[i+1] 
                 for _, i in zip(decision_list,range(len(decision_list))) 
-                    if ( (abs((decision_list[i]-C_iMinus1))/C_iMinus1<= 0.05 ) and  i<len(decision_list)-1 ) ]
-            
-            # print("C_i-1 =" +str(C_iMinus1) + 
-            #         " | mean(decisionList) = " + str(mean(decision_list)) + 
-            #         " | mean(subLongSeq) = "+ str(mean(subLongSeq)) + 
-            #         " | mean(throughputLog) = " + str(mean(throughputHistoryLog)) +
-            #         " | C_i-1_AM = "+ str(throughputHistoryLog[-1]) )  
+                    if ( (abs((decision_list[i]-Ideal_S_iMinus1))/Ideal_S_iMinus1<= 0.025 ) and  i<len(decision_list)-1 ) ]
             
             if (len(subLongSeq)>30):
                 quantValue = quantile(subLongSeq, pEpsilon)
-                throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
-                suggestedFrameSize = throughputEstimate  * (1/FPS)
+                suggestedFrameSize = quantValue
                 # pyplot.hist(subLongSeq, bins=50)
+                # pyplot.axvline(x=quantValue, color = "black")
                 # pyplot.show()
             else:
                 quantValue = quantile(decision_list, pEpsilon)
-                throughputEstimate = quantValue * (FPS*(max(timeBuffer + T_i, 1/FPS) ) )
-                suggestedFrameSize = throughputEstimate  * (1/FPS)
+                suggestedFrameSize = quantValue
 
 
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
@@ -240,7 +233,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "purple"]
-bufferSizeArray = np.arange(1, 10, step = 1)
+bufferSizeArray = np.arange(0, 6.25, step = 0.25)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -304,20 +297,32 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
             " (Mbps). Loss rate: " + str(count_skip_AM/(howLongIsVideoInSeconds*FPS)))
 
 
-pyplot.xlabel("Bitrate (in MB/s)")
+pyplot.xlabel("Initial buffer time (in 1/FPS seconds)")
 pyplot.ylabel("Loss rate")
 for ix in range(len(mAxis)):
-    pyplot.plot(AM_BitrateMatrix[ix], AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=1, linewidth=1)
-pyplot.plot(Minimal_Bitrate, Minimal_Lossrate, '-s', color = "black", markersize = 1, linewidth = 1)
-pyplot.plot(Cond_Bitrate, Cond_Lossrate, '-s', color='blue',markersize=1, linewidth=1)
+    pyplot.plot(bufferSizeArray, AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
+pyplot.plot(bufferSizeArray, Minimal_Lossrate, '-s', color = "black", markersize = 2, linewidth = 1)
+pyplot.plot(bufferSizeArray, Cond_Lossrate, '-s', color='blue',markersize=2, linewidth=1)
 
-for x_axis,y_axis,bufferInteger in zip(Cond_Bitrate, Cond_Lossrate,bufferSizeArray):
-    pyplot.annotate(str(bufferInteger), (float(x_axis), float(y_axis)) )
-
-AMLegend = ["A.M. M=" + str(trackUsed) for trackUsed in mAxis]
+AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
+pyplot.axhline(y=0.05, color='green', linestyle='-', linewidth=1)
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
-            ["Empirical Condt'l"], 
+            ["Empirical Condt'l"] + 
+            ["Const. 0.05"], 
             loc="best")
+pyplot.show()
 
+pyplot.xlabel("Initial buffer time (in 1/FPS seconds)")
+pyplot.ylabel("Bitrate (in Mbps)")
+for ix in range(len(mAxis)):
+    pyplot.plot(bufferSizeArray, AM_BitrateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
+pyplot.plot(bufferSizeArray, Minimal_Bitrate, '-s', color = "black", markersize = 2, linewidth = 1)
+pyplot.plot(bufferSizeArray, Cond_Bitrate, '-s', color='blue',markersize=2, linewidth=1)
+
+AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
+pyplot.legend(AMLegend + 
+            ["Fixed as Minimal"] +
+            ["Empirical Condt'l"],
+            loc="best")
 pyplot.show()

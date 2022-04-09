@@ -5,6 +5,7 @@ from warnings import catch_warnings
 from matplotlib.pyplot import summer
 from numpy.core.fromnumeric import argmax, partition
 from numpy.lib.function_base import median
+from scipy.fftpack import shift
 from scipy.stats import norm
 from scipy.stats import laplace
 import numpy as np
@@ -181,20 +182,20 @@ def constructProbabilityModel(networkEnvBW, binsMe, networkSampleFreq, traceData
     
         return [model,tobeDeleted]
 
-def generatingBackwardHistogram(FPS,
+def generatingBackwardHistogramSize(time,
                                 int_C, 
                                 timeSeq, 
                                 currentTime, 
                                 lenLimit):
     if (timeSeq[-1]<currentTime):
         currentTime = timeSeq[-1]
+    
     pilot = currentTime
     result = []
-    while (len(result)< lenLimit and pilot - 1/FPS>timeSeq[0]):
-        speed = (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-1/FPS, int_C=int_C, timeSeq=timeSeq)) * FPS
-        result.insert(0, speed )
-        # print(speed)
-        pilot = pilot - 1/FPS
+    while (len(result)< lenLimit and pilot - time>timeSeq[0]):
+        amount = (F(pilotTime=pilot, int_C=int_C, timeSeq=timeSeq)-F(pilotTime =pilot-time, int_C=int_C, timeSeq=timeSeq)) 
+        result.insert(0, amount )
+        pilot = pilot - time
     return result
 
 def find_lt_index(a, x):
