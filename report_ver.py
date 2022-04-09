@@ -163,6 +163,18 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                 quantValue = quantile(decision_list, pEpsilon)
                 suggestedFrameSize = quantValue
 
+        elif (estimatingType == "Marginal"):
+            localLenLimit = 60 * FPS
+            lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
+                                                                    int_C = all_intC,
+                                                                    timeSeq = networkEnvTime,
+                                                                    currentTime = runningTime, 
+                                                                    lenLimit = localLenLimit, ) 
+            
+            decision_list = lookBackwardHistogramS
+            quantValue = quantile(decision_list, pEpsilon)
+            suggestedFrameSize = quantValue
+
 
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
@@ -177,11 +189,6 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         
-        # elif (estimatingType == "Marginal"):
-        #     lookBackwardHistogramC = utils.generatingBackwardHistogram(FPS=FPS, int_C=packet_level_integral_C,timeSeq=packet_level_time,currentTime=runningTime, lenLimit = lenLimit) 
-        #     assemble_list = throughputHistoryLog + lookBackwardHistogramC
-        #     decision_list = assemble_list[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
         # Until now, the suggestedFrameSize is fixed.
@@ -232,12 +239,14 @@ packet_level_integral_C_original = packet_level_integral_C_training
 packet_level_time_original = packet_level_time_training
 
 
-colorList = ["red", "orange", "purple"]
+colorList = ["red", "orange", "cyan"]
 bufferSizeArray = np.arange(0, 6.25, step = 0.25)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
 Minimal_Bitrate = []
+Marginal_Lossrate = []
+Marginal_Bitrate = []
 
 a_small_minimal_framesize = 0.0001
 
@@ -273,6 +282,21 @@ for bufferTime in bufferSizeArray:
     print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme[0] / howLongIsVideoInSeconds) + 
         " (Mbps). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
 
+    MarginalScheme = uploadProcess(
+                        minimal_framesize = a_small_minimal_framesize, 
+                        estimatingType = "Marginal", 
+                        pLogCi = bigHistorySequence, 
+                        pTrackUsed=5, 
+                        packet_level_integral_C=packet_level_integral_C_original, 
+                        packet_level_time=packet_level_time_original,
+                        pBufferTime = bufferTime/FPS)
+
+    count_skip_marginal = MarginalScheme[2]
+    Marginal_Lossrate.append(count_skip_marginal/(howLongIsVideoInSeconds*FPS))
+    Marginal_Bitrate.append(MarginalScheme[0] / howLongIsVideoInSeconds )
+    print("Marginal Framesize Method. Bitrate: " + str(MarginalScheme[0] / howLongIsVideoInSeconds) + 
+        " (Mbps). Loss rate: " + str(count_skip_marginal/(howLongIsVideoInSeconds*FPS)))
+
     print("-------------------------------------------------")
 
 
@@ -303,14 +327,17 @@ for ix in range(len(mAxis)):
     pyplot.plot(bufferSizeArray, AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
 pyplot.plot(bufferSizeArray, Minimal_Lossrate, '-s', color = "black", markersize = 2, linewidth = 1)
 pyplot.plot(bufferSizeArray, Cond_Lossrate, '-s', color='blue',markersize=2, linewidth=1)
-
+pyplot.plot(bufferSizeArray, Marginal_Lossrate, '-s', color='purple',markersize=2, linewidth=1)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.axhline(y=0.05, color='green', linestyle='-', linewidth=1)
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
             ["Empirical Condt'l"] + 
+            ["Marginal"] + 
             ["Const. 0.05"], 
             loc="best")
+pyplot.tick_params(axis='x', labelsize=14)
+pyplot.tick_params(axis='y', labelsize=14)
 pyplot.show()
 
 pyplot.xlabel("Initial buffer time (in 1/FPS seconds)")
@@ -319,10 +346,13 @@ for ix in range(len(mAxis)):
     pyplot.plot(bufferSizeArray, AM_BitrateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
 pyplot.plot(bufferSizeArray, Minimal_Bitrate, '-s', color = "black", markersize = 2, linewidth = 1)
 pyplot.plot(bufferSizeArray, Cond_Bitrate, '-s', color='blue',markersize=2, linewidth=1)
-
+pyplot.plot(bufferSizeArray, Marginal_Bitrate, '-s', color='purple',markersize=2, linewidth=1)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
-            ["Empirical Condt'l"],
+            ["Empirical Condt'l"] +
+            ["Marginal"],
             loc="best")
+pyplot.tick_params(axis='x', labelsize=14)
+pyplot.tick_params(axis='y', labelsize=14)
 pyplot.show()
