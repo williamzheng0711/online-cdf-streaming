@@ -13,7 +13,7 @@ from numpy import quantile
 
 howmany_Bs_IN_1Mb = 1024*1024/8
 
-whichVideo = 7
+whichVideo = 8
 FPS = 60
 
 # Testing Set Size
@@ -357,7 +357,7 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, mean(sampleThroughputRecord)/FPS, num=10)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.15, num=15)
 
 for thisMFS in minFrameSizes:
     ConditionalProposed_MFS = uploadProcess(
@@ -373,7 +373,7 @@ for thisMFS in minFrameSizes:
     Cond_Lossrate_MFS.append(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS))
     Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds)
     print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_conditional/(howLongIsVideoInSeconds*FPS)) )
+        " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS)) )
 
     MinimalFrameScheme_MFS = uploadProcess(
                         minimal_framesize = thisMFS, 
