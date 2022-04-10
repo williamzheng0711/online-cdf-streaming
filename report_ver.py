@@ -13,7 +13,7 @@ from numpy import quantile
 
 howmany_Bs_IN_1Mb = 1024*1024/8
 
-whichVideo = 13
+whichVideo = 7
 FPS = 60
 
 # Testing Set Size
@@ -239,7 +239,7 @@ packet_level_integral_C_original = packet_level_integral_C_training
 packet_level_time_original = packet_level_time_training
 
 
-colorList = ["red", "orange", "cyan"]
+colorList = ["red", "orange", "goldenrod"]
 bufferSizeArray = np.arange(0, 6.25, step = 0.25)
 Cond_Lossrate = []
 Cond_Bitrate = []
@@ -248,7 +248,7 @@ Minimal_Bitrate = []
 Marginal_Lossrate = []
 Marginal_Bitrate = []
 
-a_small_minimal_framesize = 0.0001
+a_small_minimal_framesize = 0.00000001
 
 mAxis = [5,16,128]
 for bufferTime in bufferSizeArray:
