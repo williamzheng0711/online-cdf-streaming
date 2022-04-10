@@ -228,7 +228,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "goldenrod"]
-bufferSizeArray = np.arange(0, 6.25, step = 6)
+bufferSizeArray = np.arange(0, 6.25, step = 0.25)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -357,7 +357,7 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, mean(sampleThroughputRecord)/FPS, num=3)
+minFrameSizes = np.linspace(a_small_minimal_framesize, mean(sampleThroughputRecord)/FPS, num=10)
 
 for thisMFS in minFrameSizes:
     ConditionalProposed_MFS = uploadProcess(
@@ -370,7 +370,7 @@ for thisMFS in minFrameSizes:
                         pBufferTime = 1/FPS)
 
     count_skip_conditional_MFS = ConditionalProposed_MFS[2]
-    Cond_Lossrate_MFS.append(count_skip_conditional/(howLongIsVideoInSeconds*FPS))
+    Cond_Lossrate_MFS.append(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS))
     Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds)
     print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds) + 
         " (Mbps). Loss rate: " + str(count_skip_conditional/(howLongIsVideoInSeconds*FPS)) )
@@ -385,7 +385,7 @@ for thisMFS in minFrameSizes:
                         pBufferTime = 1/FPS)
 
     count_skip_minimal_MFS = MinimalFrameScheme_MFS[2]
-    Minimal_Lossrate_MFS.append(count_skip_minimal/(howLongIsVideoInSeconds*FPS))
+    Minimal_Lossrate_MFS.append(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS))
     Minimal_Bitrate_MFS.append(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds )
     print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds) + 
         " (Mbps). Loss rate: " + str(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS)))
