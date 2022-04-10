@@ -240,7 +240,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "goldenrod"]
-bufferSizeArray = np.arange(0, 6.25, step = 0.25)
+bufferSizeArray = np.arange(0, 6.25, step = 6)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
