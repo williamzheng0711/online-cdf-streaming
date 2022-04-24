@@ -13,7 +13,7 @@ from numpy import quantile
 
 howmany_Bs_IN_1Mb = 1024*1024/8
 
-whichVideo = 8
+whichVideo = 13
 FPS = 60
 
 # Testing Set Size
@@ -138,7 +138,7 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
 
-            localLenLimit = 60 * FPS
+            localLenLimit = 300 * FPS
             lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
                                                                     int_C = all_intC,
                                                                     timeSeq = networkEnvTime,
@@ -153,11 +153,14 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
                 for _, i in zip(decision_list,range(len(decision_list))) 
                     if ( (abs((decision_list[i]-Ideal_S_iMinus1))/Ideal_S_iMinus1<= 0.025 ) and  i<len(decision_list)-1 ) ]
             
-            if (len(subLongSeq)>30):
+            if (len(subLongSeq)>100):
                 quantValue = quantile(subLongSeq, pEpsilon)
                 suggestedFrameSize = quantValue
-                # pyplot.hist(subLongSeq, bins=50)
+                # pyplot.hist(subLongSeq, bins=60)
                 # pyplot.axvline(x=quantValue, color = "black")
+                # pyplot.show()
+                # pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
+                # pyplot.hist(decision_list, bins=1000)
                 # pyplot.show()
             else:
                 quantValue = quantile(decision_list, pEpsilon)
