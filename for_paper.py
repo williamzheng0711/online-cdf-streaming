@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 60
 whichVideo = 13
 # Testing Set Size
-howLongIsVideoInSeconds = 30
+howLongIsVideoInSeconds = 50
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -94,37 +94,40 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = max( (1/FPS - delta),0 )
         
-        # throughputHistoryLog = throughputHistoryLog[ max((len(throughputHistoryLog) -1 - lenLimit),0) : len(throughputHistoryLog)]
-        if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
-            backRange = 60           
-            lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
-                                        pastDurations= transmitHistoryTimeLog,
-                                        pastDurationsCum= transmitHistoryTimeCum,
-                                        pastSizes= realVideoFrameSize, 
-                                        backwardTimeRange= backRange,
-                                        timeSlot= T_i + timeBuffer,
-                                        )
-
-            decision_list = lookbackwardHistogramS
-            Ideal_S_iMinus1 = decision_list[-1]
-
-            subLongSeq = [
-                decision_list[i+1] 
-                for _, i in zip(decision_list,range(len(decision_list))) 
-                    if ( (abs((decision_list[i]-Ideal_S_iMinus1))/Ideal_S_iMinus1<= 0.025 ) and  i<len(decision_list)-1 ) ]
+        if (estimatingType == "ProbabilityPredict"):
+            backRange = 60
+            try:
+                lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
+                                            pastDurations= transmitHistoryTimeLog,
+                                            pastDurationsCum= transmitHistoryTimeCum,
+                                            pastSizes= realVideoFrameSize, 
+                                            backwardTimeRange= backRange,
+                                            timeSlot= T_i/2 + timeBuffer,
+                                            )
+            except:
+                lookbackwardHistogramS = []
             
-            if (len(subLongSeq)>100):
-                quantValue = quantile(subLongSeq, pEpsilon)
-                suggestedFrameSize = quantValue
-                # pyplot.hist(subLongSeq, bins=60)
-                # pyplot.axvline(x=quantValue, color = "black")
-                # pyplot.show()
-                # pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
-                # pyplot.hist(decision_list, bins=1000)
-                # pyplot.show()
-            else:
-                quantValue = quantile(decision_list, pEpsilon)
-                suggestedFrameSize = quantValue
+            if (len(lookbackwardHistogramS)>2):
+                decision_list = lookbackwardHistogramS
+                Ideal_S_iMinus1 = decision_list[-1]
+
+                subLongSeq = [
+                    decision_list[i+1] 
+                    for _, i in zip(decision_list,range(len(decision_list))) 
+                        if ( (abs((decision_list[i]-Ideal_S_iMinus1))/Ideal_S_iMinus1<= 0.025 ) and  i<len(decision_list)-1 ) ]
+                    
+                if (len(subLongSeq)>100):
+                    quantValue = quantile(subLongSeq, pEpsilon)
+                    suggestedFrameSize = quantValue
+                    # pyplot.hist(subLongSeq, bins=60)
+                    # pyplot.axvline(x=quantValue, color = "black")
+                    # pyplot.show()
+                    # pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
+                    # pyplot.hist(decision_list, bins=1000)
+                    # pyplot.show()
+                else:
+                    quantValue = quantile(decision_list, pEpsilon)
+                    suggestedFrameSize = quantValue
 
         elif (estimatingType == "Marginal"):
             backRange = 60           
@@ -133,7 +136,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                                         pastDurationsCum= transmitHistoryTimeCum,
                                         pastSizes= realVideoFrameSize, 
                                         backwardTimeRange= backRange,
-                                        timeSlot= T_i + timeBuffer,
+                                        timeSlot= T_i/2 + timeBuffer,
                                         )
 
             decision_list = lookbackwardHistogramS
@@ -164,6 +167,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                                 packet_level_timestamp= networkEnvTime,
                                 framesize= thisFrameSize)
 
+
         # We record the sent frames' information in this array.
         if (uploadFinishTime<=howLongIsVideoInSeconds):
             realVideoFrameSize.append(thisFrameSize)
@@ -171,6 +175,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         uploadDuration = uploadFinishTime - runningTime
         runningTime = runningTime + uploadDuration 
         # print(thisFrameSize/uploadDuration)
+        # print(runningTime)
 
         timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
 
@@ -201,7 +206,7 @@ Minimal_Bitrate = []
 Marginal_Lossrate = []
 Marginal_Bitrate = []
 
-a_small_minimal_framesize = 0.00000001
+a_small_minimal_framesize = 0.001
 
 mAxis = [5,16,128]
 for bufferTime in bufferSizeArray:
@@ -229,17 +234,17 @@ for bufferTime in bufferSizeArray:
     print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme[0] / howLongIsVideoInSeconds) + 
         " (Mbps). Loss rate: " + str(count_skip_minimal/(howLongIsVideoInSeconds*FPS)))
 
-    MarginalScheme = uploadProcess(
-                        minimal_framesize = a_small_minimal_framesize, 
-                        estimatingType = "Marginal", 
-                        pTrackUsed=5, 
-                        pBufferTime = bufferTime/FPS)
+    # MarginalScheme = uploadProcess(
+    #                     minimal_framesize = a_small_minimal_framesize, 
+    #                     estimatingType = "Marginal", 
+    #                     pTrackUsed=5, 
+    #                     pBufferTime = bufferTime/FPS)
 
-    count_skip_marginal = MarginalScheme[2]
-    Marginal_Lossrate.append(count_skip_marginal/(howLongIsVideoInSeconds*FPS))
-    Marginal_Bitrate.append(MarginalScheme[0] / howLongIsVideoInSeconds )
-    print("Marginal Framesize Method. Bitrate: " + str(MarginalScheme[0] / howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_marginal/(howLongIsVideoInSeconds*FPS)))
+    # count_skip_marginal = MarginalScheme[2]
+    # Marginal_Lossrate.append(count_skip_marginal/(howLongIsVideoInSeconds*FPS))
+    # Marginal_Bitrate.append(MarginalScheme[0] / howLongIsVideoInSeconds )
+    # print("Marginal Framesize Method. Bitrate: " + str(MarginalScheme[0] / howLongIsVideoInSeconds) + 
+    #     " (Mbps). Loss rate: " + str(count_skip_marginal/(howLongIsVideoInSeconds*FPS)))
 
     print("-------------------------------------------------")
 

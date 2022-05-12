@@ -2,7 +2,7 @@ from gettext import find
 import math
 from unittest import result
 from warnings import catch_warnings
-from matplotlib.pyplot import summer
+from matplotlib.pyplot import plot, summer
 from numpy.core.fromnumeric import argmax, partition
 from numpy.lib.function_base import median
 from scipy.fftpack import shift
@@ -309,38 +309,34 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
 
 
 def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
-    pilot = pastDurationsCum[-1] - intNumOfSlots * timeSlot
 
-    u = find_le_index(a=pastDurationsCum, x=pilot)
-    t_res_u = pastDurationsCum[-1] - pastDurationsCum[u]
+    u = find_le_index(a=pastDurationsCum, x=pastDurationsCum[-1] - intNumOfSlots * timeSlot)
+    # print(str(u) + " U value" )
+    t_res_u = pastDurationsCum[-1] - pastDurationsCum[u] - intNumOfSlots * timeSlot
     l = find_le_index(a=pastDurationsCum, x=pastDurationsCum[u]-timeSlot+t_res_u)
     t_res_l = timeSlot - t_res_u - (pastDurationsCum[u-1] - pastDurationsCum[l+1])
     toReturn = (t_res_u/pastDurations[u])*pastSizes[u] + (t_res_l/pastDurations[l])*pastSizes[l] + sum(pastSizes[l+1:u])
-    
+
+    # print("l=" + str(l) + " u="+str(u) + " decide value is: " + str(toReturn))
     return toReturn
+
+
 
 def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes, 
                                   backwardTimeRange, timeSlot):
     pilot = 0
     result = []
     numOfSlots = 0
+    # print(pastDurationsCum)
 
-    while ( pilot < backwardTimeRange ):
-        if (numOfSlots == 0):
-            Fbig = CumSize(intNumOfSlots = numOfSlots, 
-                           pastDurationsCum = pastDurationsCum,
-                           pastDurations= pastDurations,
-                           pastSizes = pastSizes,
-                           timeSlot=timeSlot) 
-        else:
-            Fbig = Fsmall
-        Fsmall = CumSize(intNumOfSlots = numOfSlots + 1,
-                         pastDurationsCum = pastDurationsCum,
-                         pastDurations= pastDurations,
-                         pastSizes = pastSizes,
-                         timeSlot=timeSlot) 
-        amount = Fbig - Fsmall
-        result.insert(0, amount)
+    while ( pilot < backwardTimeRange and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1]):
+        size = CumSize(intNumOfSlots = numOfSlots, 
+                    pastDurationsCum = pastDurationsCum,
+                    pastDurations= pastDurations,
+                    pastSizes = pastSizes,
+                    timeSlot=timeSlot) 
+        if (size<0): print("wrong!")
+        result.insert(0, size)
         numOfSlots += 1
         pilot = pilot + timeSlot
 
