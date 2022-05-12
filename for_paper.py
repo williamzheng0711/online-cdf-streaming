@@ -108,7 +108,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                                             pastDurationsCum= transmitHistoryTimeCum,
                                             pastSizes= realVideoFrameSize, 
                                             backwardTimeRange= backRange,
-                                            timeSlot= T_i + timeBuffer/2,
+                                            timeSlot= T_i + timeBuffer,
                                             )
             except:
                 lookbackwardHistogramS = []
@@ -216,9 +216,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
 
 
-
-packet_level_integral_C_original = packet_level_integral_C_training
-packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "goldenrod"]
