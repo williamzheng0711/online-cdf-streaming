@@ -5,6 +5,8 @@
 
 
 from ctypes import util
+from math import floor
+from unittest import skip
 import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
@@ -18,7 +20,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 60
 whichVideo = 13
 # Testing Set Size
-howLongIsVideoInSeconds = 50
+howLongIsVideoInSeconds = 240
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -55,6 +57,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
     transmitHistoryTimeCum = []
     realVideoFrameSize = []
 
+    timeline = np.arange(0, howLongIsVideoInSeconds, step = 0.25)
+    skipNumberList = [0] * len(timeline)
+
     # This is to SKIP the training part of the data.
     # Hence ensures that training data is not over-lapping with testing data
     # Mock up the frame generating times
@@ -71,7 +76,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        if (singleFrame % (25 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
+        if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
             print("Now is time: " + str(runningTime) ) 
         ########################################################################################
 
@@ -85,6 +90,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
             # print("Some frame skipped!")
             count_skip = count_skip + 1
+            skipNumberList[ floor(runningTime / 0.25) ] += 1
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
@@ -102,12 +108,14 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                                             pastDurationsCum= transmitHistoryTimeCum,
                                             pastSizes= realVideoFrameSize, 
                                             backwardTimeRange= backRange,
-                                            timeSlot= T_i/2 + timeBuffer,
+                                            timeSlot= T_i + timeBuffer/2,
                                             )
             except:
                 lookbackwardHistogramS = []
+
+            # print(len(lookbackwardHistogramS))
             
-            if (len(lookbackwardHistogramS)>2):
+            if (len(lookbackwardHistogramS)>100):
                 decision_list = lookbackwardHistogramS
                 Ideal_S_iMinus1 = decision_list[-1]
 
@@ -116,7 +124,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                     for _, i in zip(decision_list,range(len(decision_list))) 
                         if ( (abs((decision_list[i]-Ideal_S_iMinus1))/Ideal_S_iMinus1<= 0.025 ) and  i<len(decision_list)-1 ) ]
                     
-                if (len(subLongSeq)>100):
+                if (len(subLongSeq)>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
                     suggestedFrameSize = quantValue
                     # pyplot.hist(subLongSeq, bins=60)
@@ -128,16 +136,28 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
+            
+            else:
+                if (len(throughputHistoryLog) > 0 ):
+                    try:
+                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+                        suggestedFrameSize = (1/FPS) * C_i_hat_AM
+                    except:
+                        suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+
 
         elif (estimatingType == "Marginal"):
-            backRange = 60           
+            backRange = 10          
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
                                         pastDurations= transmitHistoryTimeLog,
                                         pastDurationsCum= transmitHistoryTimeCum,
                                         pastSizes= realVideoFrameSize, 
                                         backwardTimeRange= backRange,
-                                        timeSlot= T_i/2 + timeBuffer,
-                                        )
+                                        timeSlot= T_i + timeBuffer/2,
+                                    )
 
             decision_list = lookbackwardHistogramS
             quantValue = quantile(decision_list, pEpsilon)
@@ -187,6 +207,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         else:
             transmitHistoryTimeCum.append(uploadDuration)
     
+
+    pyplot.plot(timeline,skipNumberList)
+    pyplot.show()
+
     return [ sum(realVideoFrameSize), [], count_skip, minimal_framesize, len(realVideoFrameSize)]
 
 
@@ -206,7 +230,7 @@ Minimal_Bitrate = []
 Marginal_Lossrate = []
 Marginal_Bitrate = []
 
-a_small_minimal_framesize = 0.001
+a_small_minimal_framesize = 0.00001
 
 mAxis = [5,16,128]
 for bufferTime in bufferSizeArray:
@@ -272,13 +296,13 @@ for ix in range(len(mAxis)):
     pyplot.plot(bufferSizeArray, AM_LossRateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
 pyplot.plot(bufferSizeArray, Minimal_Lossrate, '-s', color = "black", markersize = 2, linewidth = 1)
 pyplot.plot(bufferSizeArray, Cond_Lossrate, '-s', color='blue',markersize=2, linewidth=1)
-pyplot.plot(bufferSizeArray, Marginal_Lossrate, '-s', color='purple',markersize=2, linewidth=1)
+# pyplot.plot(bufferSizeArray, Marginal_Lossrate, '-s', color='purple',markersize=2, linewidth=1)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.axhline(y=0.05, color='green', linestyle='-', linewidth=1)
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
             ["Empirical Condt'l"] + 
-            ["Marginal"] + 
+            # ["Marginal"] + 
             ["Const. 0.05"], 
             loc="best")
 pyplot.tick_params(axis='x', labelsize=14)
@@ -291,12 +315,12 @@ for ix in range(len(mAxis)):
     pyplot.plot(bufferSizeArray, AM_BitrateMatrix[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
 pyplot.plot(bufferSizeArray, Minimal_Bitrate, '-s', color = "black", markersize = 2, linewidth = 1)
 pyplot.plot(bufferSizeArray, Cond_Bitrate, '-s', color='blue',markersize=2, linewidth=1)
-pyplot.plot(bufferSizeArray, Marginal_Bitrate, '-s', color='purple',markersize=2, linewidth=1)
+# pyplot.plot(bufferSizeArray, Marginal_Bitrate, '-s', color='purple',markersize=2, linewidth=1)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
 pyplot.legend(AMLegend + 
             ["Fixed as Minimal"] +
-            ["Empirical Condt'l"] +
-            ["Marginal"],
+            ["Empirical Condt'l"], 
+            # ["Marginal"],
             loc="best")
 pyplot.tick_params(axis='x', labelsize=14)
 pyplot.tick_params(axis='y', labelsize=14)

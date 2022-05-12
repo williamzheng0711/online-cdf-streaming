@@ -310,14 +310,23 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
 
 def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
 
+    toReturn = 0
     u = find_le_index(a=pastDurationsCum, x=pastDurationsCum[-1] - intNumOfSlots * timeSlot)
     # print(str(u) + " U value" )
     t_res_u = pastDurationsCum[-1] - pastDurationsCum[u] - intNumOfSlots * timeSlot
     l = find_le_index(a=pastDurationsCum, x=pastDurationsCum[u]-timeSlot+t_res_u)
-    t_res_l = timeSlot - t_res_u - (pastDurationsCum[u-1] - pastDurationsCum[l+1])
-    toReturn = (t_res_u/pastDurations[u])*pastSizes[u] + (t_res_l/pastDurations[l])*pastSizes[l] + sum(pastSizes[l+1:u])
+    if (u==l and u!=0):
+        toReturn = timeSlot * pastSizes[u]/pastDurations[u]
+    else:
+        if (u == 0 and l == 0):
+            t_res_l = timeSlot - t_res_u
+        else:
+            t_res_l = timeSlot - t_res_u - max( pastDurationsCum[u-1] - pastDurationsCum[l+1] ,0 )
 
-    # print("l=" + str(l) + " u="+str(u) + " decide value is: " + str(toReturn))
+        toReturn = (t_res_u/pastDurations[u])*pastSizes[u] + (t_res_l/pastDurations[l])*pastSizes[l] + sum(pastSizes[l+1:u])
+
+    if (u<l or toReturn <0):
+        print("u: " + str(u) + "  l: " + str(l) + " t_res_u=" +str(t_res_u) + " t_res_l=" +str(t_res_l)+ "  valueDecided: " + str(toReturn))
     return toReturn
 
 
@@ -327,15 +336,15 @@ def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes,
     pilot = 0
     result = []
     numOfSlots = 0
-    # print(pastDurationsCum)
 
-    while ( pilot < backwardTimeRange and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1]):
+    while ( pilot < backwardTimeRange and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1] ):
         size = CumSize(intNumOfSlots = numOfSlots, 
                     pastDurationsCum = pastDurationsCum,
                     pastDurations= pastDurations,
                     pastSizes = pastSizes,
-                    timeSlot=timeSlot) 
-        if (size<0): print("wrong!")
+                    timeSlot= timeSlot) 
+        if (size<0): 
+            print("wrong!")
         result.insert(0, size)
         numOfSlots += 1
         pilot = pilot + timeSlot
