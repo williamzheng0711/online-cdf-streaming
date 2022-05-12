@@ -158,14 +158,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
         # Until now, the suggestedFrameSize is fixed.
         #######################################################################################
-        uploadFinishTime = utils.packet_level_frame_upload_finish_time( 
+        uploadFinishTime = utils.paper_frame_upload_finish_time( 
                                 runningTime= runningTime,
                                 packet_level_data= networkEnvPacket,
                                 packet_level_timestamp= networkEnvTime,
-                                framesize= thisFrameSize,
-                                toUsePacketRecords = (estimatingType == "ProbabilityPredict") or (estimatingType =="Marginal"),
-                                packet_level_integral_C = packet_level_integral_C_inside,
-                                packet_level_time = packetLevelTimeInside,)
+                                framesize= thisFrameSize)
 
         # We record the sent frames' information in this array.
         if (uploadFinishTime<=howLongIsVideoInSeconds):
