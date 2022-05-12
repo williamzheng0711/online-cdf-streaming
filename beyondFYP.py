@@ -17,7 +17,7 @@ whichVideo = 13
 FPS = 60
 
 # Testing Set Size
-howLongIsVideoInSeconds = 120
+howLongIsVideoInSeconds = 30
 
 network_trace_dir = './dataset/fyp_lab/'
 
@@ -31,7 +31,7 @@ packet_level_time_training = []
 networkEnvTime_AM = []
 networkEnvPacket_AM= []
 
-PreRunTime = 120
+PreRunTime = 20
 
 # load the mock data from our local dataset
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -81,7 +81,7 @@ print("This is mean above (Mbps)")
 pEpsilon = 0.05
 testingTimeStart = timeTrack
 
-all_intC = np.cumsum(networkEnvPacket)
+# all_intC = np.cumsum(networkEnvPacket)
 
 def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed, 
                     packet_level_integral_C, packet_level_time, pBufferTime):
@@ -139,11 +139,13 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
         if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog)>0 ):
 
             localLenLimit = 300 * FPS
-            lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
-                                                                    int_C = all_intC,
-                                                                    timeSeq = networkEnvTime,
-                                                                    currentTime = runningTime, 
-                                                                    lenLimit = localLenLimit, ) 
+            lookbackwardHistogramS = []
+
+            # lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer,
+            #                                                         int_C = all_intC,
+            #                                                         timeSeq = networkEnvTime,
+            #                                                         currentTime = runningTime, 
+            #                                                         lenLimit = localLenLimit, ) 
             
             decision_list = lookBackwardHistogramS
             Ideal_S_iMinus1 = decision_list[-1]
@@ -168,12 +170,14 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
 
         elif (estimatingType == "Marginal"):
             localLenLimit = 60 * FPS
-            lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
-                                                                    int_C = all_intC,
-                                                                    timeSeq = networkEnvTime,
-                                                                    currentTime = runningTime, 
-                                                                    lenLimit = localLenLimit, ) 
+            # lookBackwardHistogramS = utils.generatingBackwardHistogramSize(time = T_i + timeBuffer/2,
+            #                                                         int_C = all_intC,
+            #                                                         timeSeq = networkEnvTime,
+            #                                                         currentTime = runningTime, 
+            #                                                         lenLimit = localLenLimit, ) 
             
+            lookbackwardHistogramS = []
+
             decision_list = lookBackwardHistogramS
             quantValue = quantile(decision_list, pEpsilon)
             suggestedFrameSize = quantValue
@@ -219,8 +223,18 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
 
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
+        transmitHistoryTimeLog.append(uploadDuration)
+
 
     return [ sum(realVideoFrameSize), [], count_skip, minimal_framesize, len(realVideoFrameSize)]
+
+
+
+
+
+
+
+
 
 
 lenLimit = PreRunTime * FPS
@@ -231,7 +245,7 @@ packet_level_time_original = packet_level_time_training
 
 
 colorList = ["red", "orange", "goldenrod"]
-bufferSizeArray = np.arange(0, 6.25, step = 0.25)
+bufferSizeArray = np.arange(0, 6.25, step = 2)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -360,7 +374,7 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.15, num=15)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.15, num=3)
 
 for thisMFS in minFrameSizes:
     ConditionalProposed_MFS = uploadProcess(

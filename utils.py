@@ -280,3 +280,83 @@ def packet_level_frame_upload_finish_time( runningTime,
             framesize = s_temp
 
         shift = shift +1
+
+
+
+def paper_frame_upload_finish_time( runningTime, 
+                                            packet_level_data, 
+                                            packet_level_timestamp, 
+                                            framesize,
+                                            packet_level_integral_C, 
+                                            packet_level_time, 
+                                            toUsePacketRecords ):
+
+    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
+    i = 0 
+
+    original_framesize = framesize
+
+    while (framesize > 0): 
+
+        if (i == 0):
+            i = 1
+            s_temp = framesize - packet_level_data[shift]
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
+            if (s_temp<=0):
+                t_out = packet_level_timestamp[shift]
+                # print(str(original_framesize/(t_out-runningTime)) )
+                return t_out
+            framesize = s_temp
+        else: 
+            s_temp = framesize - packet_level_data[shift]
+            if (toUsePacketRecords):
+                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+                packet_level_time.append(packet_level_timestamp[shift])
+            if (s_temp<=0): 
+                t_out = packet_level_timestamp[shift]
+                return t_out
+            framesize = s_temp
+
+        shift = shift +1
+
+
+
+
+
+def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
+    pilot = pastDurationsCum[-1] - intNumOfSlots * timeSlot
+
+    u = find_le_index(a=pastDurationsCum, x=pilot)
+    t_res_u = pastDurationsCum[-1] - pastDurationsCum[u]
+    l = find_le_index(a=pastDurationsCum, x=pastDurationsCum[u]-timeSlot+t_res_u)
+    t_res_l = timeSlot - t_res_u - (pastDurationsCum[u-1] - pastDurationsCum[l+1])
+    toReturn = (t_res_u/pastDurations[u])*pastSizes[u] + (t_res_l/pastDurations[l])*pastSizes[l] + sum(pastSizes[l+1:u])
+    
+    return toReturn
+
+def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes, 
+                                  backwardTimeRange, timeSlot):
+    pilot = 0
+    result = []
+    numOfSlots = 0
+
+    while ( pilot < backwardTimeRange ):
+        if (numOfSlots == 0):
+            Fbig = CumSize(intNumOfSlots = numOfSlots, 
+                           pastDurationsCum = pastDurationsCum,
+                           pastDurations= pastDurations,
+                           pastSizes = pastSizes) 
+        else:
+            Fbig = Fsmall
+        Fsmall = CumSize(intNumOfSlots = numOfSlots + 1,
+                         pastDurationsCum = pastDurationsCum,
+                         pastDurations= pastDurations,
+                         pastSizes = pastSizes) 
+        amount = Fbig - Fsmall
+        result.insert(0, amount)
+        numOfSlots += 1
+        pilot = pilot + timeSlot
+
+    return result
