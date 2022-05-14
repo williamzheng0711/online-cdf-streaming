@@ -110,7 +110,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                                             pastDurationsCum= transmitHistoryTimeCum,
                                             pastSizes= realVideoFrameSize, 
                                             backLen= backLen,
-                                            timeSlot= T_i + timeBuffer,
+                                            timeSlot= min(T_i + timeBuffer,1/FPS ),
                                         )
             except:
                 lookbackwardHistogramS = []
