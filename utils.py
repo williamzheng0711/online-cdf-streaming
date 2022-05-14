@@ -309,7 +309,6 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
 
 
 def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
-
     toReturn = 0
     u = find_le_index(a=pastDurationsCum, x=pastDurationsCum[-1] - intNumOfSlots * timeSlot)
     # print(str(u) + " U value" )
@@ -331,13 +330,12 @@ def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot)
 
 
 
-def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes, 
-                                  backwardTimeRange, timeSlot):
+def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes, backLen, timeSlot):
     pilot = 0
     result = []
     numOfSlots = 0
 
-    while ( pilot < backwardTimeRange and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1] ):
+    while ( numOfSlots < backLen and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1] ):
         size = CumSize(intNumOfSlots = numOfSlots, 
                     pastDurationsCum = pastDurationsCum,
                     pastDurations= pastDurations,
