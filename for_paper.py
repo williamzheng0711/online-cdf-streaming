@@ -6,6 +6,7 @@
 
 from ctypes import util
 from math import floor
+from time import time
 from unittest import skip
 import numpy as np
 from numpy.core.fromnumeric import mean
@@ -18,9 +19,9 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 13
+whichVideo = 8
 # Testing Set Size
-howLongIsVideoInSeconds = 240
+howLongIsVideoInSeconds = 600
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -29,6 +30,7 @@ initialTime = 0
 packet_level_integral_C_training = []
 packet_level_time_training = []
 
+moving_window = 5
 
 for suffixNum in range(whichVideo,whichVideo+1):
     with open( network_trace_dir+ str(suffixNum) + ".txt" ) as traceDateFile:
@@ -57,9 +59,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
     transmitHistoryTimeCum = []
     realVideoFrameSize = []
 
-    timeline = np.arange(0, howLongIsVideoInSeconds, step = 0.25)
+    timeline = np.arange(0, howLongIsVideoInSeconds, step = 1)
     skipNumberList = [0] * len(timeline)
     totalNumberList = [0] * len(timeline)
+    effectiveNumberList = [0] * len(timeline)
 
     # This is to SKIP the training part of the data.
     # Hence ensures that training data is not over-lapping with testing data
@@ -77,7 +80,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        totalNumberList[  min(floor(runningTime / 0.25), len(totalNumberList)-1 ) ] += 1
+        totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
         if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
             print("Now is time: " + str(runningTime) ) 
         ########################################################################################
@@ -92,7 +95,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
             # print("Some frame skipped!")
             count_skip = count_skip + 1
-            skipNumberList[ floor(runningTime / 0.25) ] += 1
+            skipNumberList[ floor(runningTime) ] += 1
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
@@ -118,6 +121,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
             # print(len(lookbackwardHistogramS))
             
             if (len(lookbackwardHistogramS)>100):
+                effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
                 decision_list = lookbackwardHistogramS
                 Ideal_S_iMinus1 = decision_list[-1]
                 subLongSeq = [
@@ -181,8 +185,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
 
 
-
-
         # Until now, the suggestedFrameSize is fixed.
         #######################################################################################
         uploadFinishTime = utils.paper_frame_upload_finish_time( 
@@ -214,8 +216,20 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
     cumsum_skip = cumsum(skipNumberList)
     cumsum_ttotal = cumsum(totalNumberList)
-    pyplot.plot(timeline,[a/b for a,b in zip(cumsum_skip,cumsum_ttotal)])
-    pyplot.show()
+    skip_moving_avg = []
+    # pyplot.plot(timeline,[a/b for a,b in zip(cumsum_skip,cumsum_ttotal)])
+    for j in range(len(skipNumberList)):
+        if (j<=5):
+            skip_moving_avg.append(  sum(skipNumberList[0:j+1])   / sum(totalNumberList[0:j+1]) )
+        if (j>5):
+            skip_moving_avg.append(  sum(skipNumberList[j-4:j+1]) / sum(totalNumberList[j-4:j+1]) )
+
+    if (estimatingType == "ProbabilityPredict"):
+        pyplot.xlabel("timeline (in second) " + "| buffer size: " +str(pBufferTime) +" in seconds | (FPS=" +str(FPS)+")" )
+        pyplot.ylabel("moving average loss rate (" + str(moving_window) + " seconds sliding window)" )
+        pyplot.plot(timeline, skip_moving_avg)
+        # pyplot.plot(timeline, [a/b for a,b in zip(effectiveNumberList,totalNumberList)])
+        pyplot.show()
 
     return [ sum(realVideoFrameSize), [], count_skip, minimal_framesize, len(realVideoFrameSize)]
 
