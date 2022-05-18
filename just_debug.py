@@ -1,89 +1,39 @@
+import numpy as np, pandas as pd
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+import matplotlib.pyplot as plt
+plt.rcParams.update({'figure.figsize':(9,7), 'figure.dpi':120})
 
-from cmath import sqrt
-from random import sample
-from statistics import mean, variance
+# Import data : Internet Usage per Minute
+df = pd.read_csv('https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv', names=['value'], header=0)
 
-from numpy import quantile
+# # Original Series
+# fig, axes = plt.subplots(3, 2, sharex=True)
+# axes[0, 0].plot(df.value); axes[0, 0].set_title('Original Series')
+# plot_acf(df.value, ax=axes[0, 1])
 
+# # 1st Differencing
+# axes[1, 0].plot(df.value.diff()); axes[1, 0].set_title('1st Order Differencing')
+# plot_acf(df.value.diff().dropna(), ax=axes[1, 1])
 
-B_IN_MB = 1024*1024
+# # 2nd Differencing
+# axes[2, 0].plot(df.value.diff().diff()); axes[2, 0].set_title('2nd Order Differencing')
+# plot_acf(df.value.diff().diff().dropna(), ax=axes[2, 1])
 
-whichVideo = 6
-FPS = 30
+# plt.show()
 
-# Testing Set Size
-howLongIsVideoInSeconds = 60
+from statsmodels.tsa.arima.model import ARIMA
 
-# Training Data Size
-timePacketsDataLoad = 4000000
+# 1,1,2 ARIMA Model
+model = ARIMA(df, order=(1,1,2))
+model_fit = model.fit()
+print(model_fit.summary())
 
-network_trace_dir = './dataset/fyp_lab/'
+print(model_fit.plot_predict)
+# Plot residual errors
+residuals = pd.DataFrame(model_fit.resid)
+fig, ax = plt.subplots(1,2)
+residuals.plot(title="Residuals", ax=ax[0])
+residuals.plot(kind='kde', title='Density', ax=ax[1])
+plt.show()
 
-networkEnvTime = []
-networkEnvPacket= []
-count = 0
-initialTime = 0
-packet_level_integral_C_training = []
-packet_level_time_training = []
-
-networkEnvTime_AM = []
-networkEnvPacket_AM= []
-
-PreRunTime = 300
-
-# load the mock data from our local dataset
-for suffixNum in range(whichVideo,whichVideo+1):
-    with open( network_trace_dir+ str(suffixNum) + ".txt" ) as traceDateFile:
-        for eachLine in traceDateFile:
-            parse = eachLine.split()
-            if (count==0):
-                initialTime = float(parse[0])
-            nowFileTime = float(parse[0]) 
-            if (nowFileTime - initialTime) < PreRunTime:
-                networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
-                networkEnvTime_AM.append(nowFileTime - initialTime)
-                networkEnvPacket_AM.append( float(parse[1]) / B_IN_MB ) 
-                if (len(packet_level_integral_C_training)==0):
-                    packet_level_integral_C_training.append(0 )
-                else:
-                    packet_level_integral_C_training.append(networkEnvPacket[-1]+packet_level_integral_C_training[-1])
-                packet_level_time_training.append(nowFileTime - initialTime)
-                count = count  +1 
-            else:
-                networkEnvTime.append(nowFileTime - initialTime)
-                networkEnvPacket.append( float(parse[1]) / B_IN_MB ) 
-                count = count  +1 
-                
-print("Before using time-packet, is time order correct? "+ str(packet_level_time_training == sorted(packet_level_time_training, reverse=False)))
-print("Before using integral records, is the order correct? "+ str(packet_level_integral_C_training == sorted(packet_level_integral_C_training, reverse=False)))
-# All things above are  "environment"'s initialization, 
-# which cannot be manipulated by our algorithm.
-############################################################################
-# All things below are of our business
-
-
-
-############################################################################
-# To train the data set used for AM algorithm
-timeTrack = 0
-amount = 0
-sampleThroughputRecord = []
-for numberA in range(len(networkEnvPacket_AM)):
-    amount = amount + networkEnvPacket[numberA]
-    if ( ( networkEnvTime[numberA] - timeTrack ) > 1 / FPS ):
-        throughputLast = amount / ( networkEnvTime[numberA] - timeTrack  )
-        timeTrack = networkEnvTime[numberA]
-        sampleThroughputRecord.append( throughputLast )
-        amount = 0
-
-############################################################################
-
-pEpsilon = 0.05
-
-print(mean(sampleThroughputRecord))
-print(sqrt(variance(sampleThroughputRecord,pEpsilon)))
-
-t_experiment = (mean(sampleThroughputRecord)/quantile(sampleThroughputRecord,pEpsilon)-1)/FPS
-
-print(t_experiment)
+# Actual vs Fitted
