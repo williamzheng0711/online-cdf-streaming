@@ -16,13 +16,10 @@ from scipy.stats import laplace
 
 
 
-
 MILLISECONDS_IN_SECOND = 1000.0
 B_IN_MB = 1000.0*1000.0
 
-
-NETWORK_TRACE = "1h_less"
-network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
+network_trace_dir = './dataset/network_trace/1h_less/'
 
 count = 0
 intake = 90000
@@ -36,7 +33,7 @@ marginalSample = 3
 samplingInterval = 0
 
 for suffixNum in range(12,13):
-    samplingInterval = utils.decideSamplingInterval(suffixNum)
+    samplingInterval = 0.04
 
     networkEnvBW = []
     with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
