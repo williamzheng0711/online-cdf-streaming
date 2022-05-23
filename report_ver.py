@@ -156,12 +156,12 @@ def uploadProcess( minimal_framesize, estimatingType, pLogCi, pTrackUsed,
             if (len(subLongSeq)>100):
                 quantValue = quantile(subLongSeq, pEpsilon)
                 suggestedFrameSize = quantValue
-                # pyplot.hist(subLongSeq, bins=60)
-                # pyplot.axvline(x=quantValue, color = "black")
-                # pyplot.show()
-                # pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
-                # pyplot.hist(decision_list, bins=1000)
-                # pyplot.show()
+                pyplot.hist(subLongSeq, bins=60)
+                pyplot.axvline(x=quantValue, color = "black")
+                pyplot.show()
+                pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
+                pyplot.hist(decision_list, bins=1000)
+                pyplot.show()
             else:
                 quantValue = quantile(decision_list, pEpsilon)
                 suggestedFrameSize = quantValue
