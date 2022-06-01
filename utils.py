@@ -285,7 +285,7 @@ def packet_level_frame_upload_finish_time( runningTime,
 
 def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize):
 
-    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
+    shift = find_ge_index(a= packet_level_timestamp, x= runningTime)
     i = 0 
 
     while (framesize > 0): 
@@ -294,12 +294,14 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
             s_temp = framesize - packet_level_data[shift]
             if (s_temp<=0):
                 t_out = packet_level_timestamp[shift]
+                packet_level_data[shift] = packet_level_data[shift] - framesize
                 return t_out
             framesize = s_temp
         else: 
             s_temp = framesize - packet_level_data[shift]
             if (s_temp<=0): 
                 t_out = packet_level_timestamp[shift]
+                packet_level_data[shift] = packet_level_data[shift] - framesize
                 return t_out
             framesize = s_temp
         shift = shift +1
