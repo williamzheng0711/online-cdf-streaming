@@ -243,49 +243,49 @@ def F(pilotTime, int_C, timeSeq):
 
 
 
-def packet_level_frame_upload_finish_time( runningTime, 
-                                            packet_level_data, 
-                                            packet_level_timestamp, 
-                                            framesize,
-                                            packet_level_integral_C, 
-                                            packet_level_time, 
-                                            toUsePacketRecords ):
+# def packet_level_frame_upload_finish_time( runningTime, 
+#                                             packet_level_data, 
+#                                             packet_level_timestamp, 
+#                                             framesize,
+#                                             packet_level_integral_C, 
+#                                             packet_level_time, 
+#                                             toUsePacketRecords ):
 
-    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
-    i = 0 
+#     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
+#     i = 0 
 
-    original_framesize = framesize
+#     original_framesize = framesize
 
-    while (framesize > 0): 
+#     while (framesize > 0): 
 
-        if (i == 0):
-            i = 1
-            s_temp = framesize - packet_level_data[shift]
-            if (toUsePacketRecords):
-                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-                packet_level_time.append(packet_level_timestamp[shift])
-            if (s_temp<=0):
-                t_out = packet_level_timestamp[shift]
-                # print(str(original_framesize/(t_out-runningTime)) )
-                return [t_out, packet_level_integral_C, packet_level_time]
-            framesize = s_temp
-        else: 
-            s_temp = framesize - packet_level_data[shift]
-            if (toUsePacketRecords):
-                packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-                packet_level_time.append(packet_level_timestamp[shift])
-            if (s_temp<=0): 
-                t_out = packet_level_timestamp[shift]
-                return [t_out,packet_level_integral_C, packet_level_time]
-            framesize = s_temp
+#         if (i == 0):
+#             i = 1
+#             s_temp = framesize - packet_level_data[shift]
+#             if (toUsePacketRecords):
+#                 packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+#                 packet_level_time.append(packet_level_timestamp[shift])
+#             if (s_temp<=0):
+#                 t_out = packet_level_timestamp[shift]
+#                 # print(str(original_framesize/(t_out-runningTime)) )
+#                 return [t_out, packet_level_integral_C, packet_level_time]
+#             framesize = s_temp
+#         else: 
+#             s_temp = framesize - packet_level_data[shift]
+#             if (toUsePacketRecords):
+#                 packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
+#                 packet_level_time.append(packet_level_timestamp[shift])
+#             if (s_temp<=0): 
+#                 t_out = packet_level_timestamp[shift]
+#                 return [t_out,packet_level_integral_C, packet_level_time]
+#             framesize = s_temp
 
-        shift = shift +1
+#         shift = shift +1
 
 
 
 def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize):
 
-    shift = find_ge_index(a= packet_level_timestamp, x= runningTime)
+    shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     i = 0 
 
     while (framesize > 0): 
@@ -294,15 +294,13 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
             s_temp = framesize - packet_level_data[shift]
             if (s_temp<=0):
                 t_out = packet_level_timestamp[shift]
-                packet_level_data[shift] = packet_level_data[shift] - framesize
-                return t_out
+                return [t_out]
             framesize = s_temp
         else: 
             s_temp = framesize - packet_level_data[shift]
             if (s_temp<=0): 
                 t_out = packet_level_timestamp[shift]
-                packet_level_data[shift] = packet_level_data[shift] - framesize
-                return t_out
+                return [t_out]
             framesize = s_temp
         shift = shift +1
 
