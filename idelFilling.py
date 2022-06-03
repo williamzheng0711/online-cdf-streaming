@@ -244,7 +244,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
                 # countLoop += 1
                 # print(singleFrame)     
-                thisFrameSize = 1 * minimal_framesize
+                thisFrameSize =  0.001
                 uploadFinishTime = utils.paper_frame_upload_finish_time( 
                                         runningTime= runningTime,
                                         packet_level_data= networkEnvPacket,
