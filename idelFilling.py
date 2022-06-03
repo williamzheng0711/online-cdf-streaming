@@ -16,7 +16,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 8
+whichVideo = 13
 # Testing Set Size
 howLongIsVideoInSeconds = 180
 
@@ -399,7 +399,7 @@ Marginal_Bitrate_MFS = []
 
 some_initial_buffer = 1/FPS
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.1 , num=6)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=6)
 
 for thisMFS in minFrameSizes:
     ConditionalProposed_MFS = uploadProcess(
