@@ -117,7 +117,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             if (sendingDummyData == True):
                 backLen = 1200
             else: 
-                backLen = 3000
+                backLen = 1200
             try:
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
                                             pastDurations= transmitHistoryTimeLog,
@@ -244,7 +244,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
                 # countLoop += 1
                 # print(singleFrame)     
-                thisFrameSize =  0.001
+                thisFrameSize =  0.005
                 uploadFinishTime = utils.paper_frame_upload_finish_time( 
                                         runningTime= runningTime,
                                         packet_level_data= networkEnvPacket,
@@ -269,7 +269,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         # print(countLoop)
         sendDummyFrame == False
 
-    return [videoCumsize, [], count_skip, minimal_framesize, len(realVideoFrameSize)]
+    return [videoCumsize, [], count_skip, minimal_framesize]
 
 
 
