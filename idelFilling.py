@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 13
 # Testing Set Size
-howLongIsVideoInSeconds = 180
+howLongIsVideoInSeconds = 100
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -48,7 +48,7 @@ print( str(throughputEstimateInit) +
 
 pEpsilon = 0.05
 
-def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData):
+def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
     
     timeBuffer = pBufferTime
 
@@ -244,7 +244,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
                 # countLoop += 1
                 # print(singleFrame)     
-                thisFrameSize =  0.005
+                thisFrameSize =  dummyDataSize
                 uploadFinishTime = utils.paper_frame_upload_finish_time( 
                                         runningTime= runningTime,
                                         packet_level_data= networkEnvPacket,
@@ -269,7 +269,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         # print(countLoop)
         sendDummyFrame == False
 
-    return [videoCumsize, [], count_skip, minimal_framesize]
+    return [videoCumsize, [], count_skip, minimal_framesize, dummyDataSize]
 
 
 
@@ -277,7 +277,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
 colorList = ["red", "orange", "goldenrod"]
-bufferSizeArray = np.arange(0, 6.25, step = 2)
+# bufferSizeArray = np.arange(0, 6.25, step = 2)
 Cond_Lossrate = []
 Cond_Bitrate = []
 Minimal_Lossrate = []
@@ -390,8 +390,11 @@ mAxis = [5,16,128]
 # Lets do Bitrate and loss rate against minimal frame size
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
-Cond_Lossrate_Dummy_MFS = []
-Cond_Bitrate_Dummy_MFS = []
+
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=7)
+dummySizes = np.linspace(0.01,0.1, num=5)
+Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
+Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Minimal_Lossrate_MFS = []
 Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
@@ -399,15 +402,15 @@ Marginal_Bitrate_MFS = []
 
 some_initial_buffer = 1/FPS
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=6)
 
-for thisMFS in minFrameSizes:
+for thisMFS,idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
     ConditionalProposed_MFS = uploadProcess(
                         minimal_framesize= thisMFS, 
                         estimatingType = "ProbabilityPredict", 
                         pTrackUsed=5, 
                         pBufferTime = some_initial_buffer,
-                        sendingDummyData= False )
+                        sendingDummyData= False,
+                        dummyDataSize= 0 )
 
     count_skip_conditional_MFS = ConditionalProposed_MFS[2]
     Cond_Lossrate_MFS.append(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS))
@@ -416,38 +419,42 @@ for thisMFS in minFrameSizes:
         " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS)) )
 
 
-    ConditionalProposed_MFS_Dummy = uploadProcess(
-                        minimal_framesize= thisMFS, 
-                        estimatingType = "ProbabilityPredict", 
-                        pTrackUsed=5, 
-                        pBufferTime = some_initial_buffer,
-                        sendingDummyData= True )
+    for dummySize, idx in zip(dummySizes,range(len(dummySizes))):
+        ConditionalProposed_MFS_Dummy = uploadProcess(
+                            minimal_framesize= thisMFS, 
+                            estimatingType = "ProbabilityPredict", 
+                            pTrackUsed=5, 
+                            pBufferTime = some_initial_buffer,
+                            sendingDummyData= True, 
+                            dummyDataSize= dummySize )
 
-    count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
-    Cond_Lossrate_Dummy_MFS.append(count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS))
-    Cond_Bitrate_Dummy_MFS.append(ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds)
-    print("Cond'l Proposed Method (Dummy). Bitrate: " + str(ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS)) )
+        count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
+        Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS))
+        Cond_Bitrate_Dummy_MFS[idx][idxMFS]= (ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds)
+        print("Cond'l Proposed Method (dummysize=" + str(dummySize*125) + "KB). Bitrate: " + str(ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds) + 
+            " (Mbps). Loss rate: " + str(count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS)) )
 
-    MinimalFrameScheme_MFS = uploadProcess(
-                        minimal_framesize = thisMFS, 
-                        estimatingType = "MinimalFrame", 
-                        pTrackUsed=0, 
-                        pBufferTime = some_initial_buffer,
-                        sendingDummyData= False )
 
-    count_skip_minimal_MFS = MinimalFrameScheme_MFS[2]
-    Minimal_Lossrate_MFS.append(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS))
-    Minimal_Bitrate_MFS.append(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds )
-    print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS)))
+    # MinimalFrameScheme_MFS = uploadProcess(
+    #                     minimal_framesize = thisMFS, 
+    #                     estimatingType = "MinimalFrame", 
+    #                     pTrackUsed=0, 
+    #                     pBufferTime = some_initial_buffer,
+    #                     sendingDummyData= False )
+
+    # count_skip_minimal_MFS = MinimalFrameScheme_MFS[2]
+    # Minimal_Lossrate_MFS.append(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS))
+    # Minimal_Bitrate_MFS.append(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds )
+    # print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds) + 
+    #     " (Mbps). Loss rate: " + str(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS)))
 
     MarginalScheme_MFS = uploadProcess(
                         minimal_framesize = thisMFS, 
                         estimatingType = "Marginal", 
                         pTrackUsed=5, 
                         pBufferTime = some_initial_buffer, 
-                        sendingDummyData= False )
+                        sendingDummyData= False, 
+                        dummyDataSize= 0)
 
     count_skip_marginal_MFS = MarginalScheme_MFS[2]
     Marginal_Lossrate_MFS.append(count_skip_marginal_MFS/(howLongIsVideoInSeconds*FPS))
@@ -468,7 +475,8 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
                             estimatingType = "A.M.", 
                             pTrackUsed = trackUsed, 
                             pBufferTime = some_initial_buffer,
-                            sendingDummyData= False )
+                            sendingDummyData= False, 
+                            dummyDataSize= 0 )
 
         count_skip_AM_MFS = Arithmetic_Mean_MFS[2]
         AM_LossRateMatrix_MFS[ix][iy] = count_skip_AM_MFS/(howLongIsVideoInSeconds*FPS)
@@ -479,17 +487,19 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
 pyplot.xlabel("Minimal frame size s_min (in Mbit)")
 pyplot.ylabel("Loss rate")
 for ix in range(len(mAxis)):
-    pyplot.plot(minFrameSizes, AM_LossRateMatrix_MFS[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Minimal_Lossrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
-pyplot.plot(minFrameSizes, Cond_Lossrate_MFS, '-s', color='blue',markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Cond_Lossrate_Dummy_MFS, '-s', color='grey',markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Marginal_Lossrate_MFS, '-s', color='purple',markersize=2, linewidth=1)
+    pyplot.plot(minFrameSizes, AM_LossRateMatrix_MFS[ix], '-s', markersize=2, linewidth=1)
+# pyplot.plot(minFrameSizes, Minimal_Lossrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
+pyplot.plot(minFrameSizes, Cond_Lossrate_MFS, '-s',markersize=2, linewidth=1.5)
+for idx in range(len(dummySizes)):
+    pyplot.plot(minFrameSizes, Cond_Lossrate_Dummy_MFS[idx], '-s', markersize=4, linewidth=2)
+pyplot.plot(minFrameSizes, Marginal_Lossrate_MFS, '-s', markersize=2, linewidth=1.5)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
-pyplot.axhline(y=0.05, color='green', linestyle='-', linewidth=1)
+DummyLegend = ["Dummy Cond " + str( dummySize * 1024/8 ) + "KB" for dummySize in dummySizes] 
+pyplot.axhline(y=0.05, linestyle='-', linewidth=1)
 pyplot.legend(AMLegend + 
-            ["Fixed as Minimal"] +
+            # ["Fixed as Minimal"] +
             ["Empirical Condt'l"] + 
-            ["Dummy ECond"] + 
+            DummyLegend +
             ["Marginal"] + 
             ["Const. 0.05"], 
             loc="best")
@@ -500,16 +510,16 @@ pyplot.show()
 pyplot.xlabel("Minimal frame size s_min (in Mbit)")
 pyplot.ylabel("Bitrate (in Mbps)")
 for ix in range(len(mAxis)):
-    pyplot.plot(minFrameSizes, AM_BitrateMatrix_MFS[ix], '-s', color=colorList[ix], markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Minimal_Bitrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
-pyplot.plot(minFrameSizes, Cond_Bitrate_MFS, '-s', color='blue',markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Cond_Bitrate_Dummy_MFS, '-s', color='grey',markersize=2, linewidth=1)
-pyplot.plot(minFrameSizes, Marginal_Bitrate_MFS, '-s', color='purple',markersize=2, linewidth=1)
-AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
+    pyplot.plot(minFrameSizes, AM_BitrateMatrix_MFS[ix], '-s', markersize=2, linewidth=1)
+# pyplot.plot(minFrameSizes, Minimal_Bitrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
+pyplot.plot(minFrameSizes, Cond_Bitrate_MFS, '-s', markersize=2, linewidth=1.5)
+for idx in range(len(dummySizes)):
+    pyplot.plot(minFrameSizes, Cond_Bitrate_Dummy_MFS[idx], '-s', markersize=4, linewidth=2)
+pyplot.plot(minFrameSizes, Marginal_Bitrate_MFS, '-s',markersize=2, linewidth=1.5)
 pyplot.legend(AMLegend + 
-            ["Fixed as Minimal"] +
+            # ["Fixed as Minimal"] +
             ["Empirical Condt'l"] +
-            ["Dummy ECond"], 
+            DummyLegend +
             ["Marginal"],
             loc="best")
 pyplot.tick_params(axis='x', labelsize=14)
