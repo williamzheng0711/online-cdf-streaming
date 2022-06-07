@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 13
 # Testing Set Size
-howLongIsVideoInSeconds = 100
+howLongIsVideoInSeconds = 150
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -391,8 +391,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=7)
-dummySizes = np.linspace(0.01,0.1, num=5)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.4 , num=7)
+dummySizes = np.linspace(0.05*1000/1024, 0.1*1000/1024, num=4)
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Minimal_Lossrate_MFS = []
@@ -494,7 +494,7 @@ for idx in range(len(dummySizes)):
     pyplot.plot(minFrameSizes, Cond_Lossrate_Dummy_MFS[idx], '-s', markersize=4, linewidth=2)
 pyplot.plot(minFrameSizes, Marginal_Lossrate_MFS, '-s', markersize=2, linewidth=1.5)
 AMLegend = ["A.M. K=" + str(trackUsed) for trackUsed in mAxis]
-DummyLegend = ["Dummy Cond " + str( dummySize * 1024/8 ) + "KB" for dummySize in dummySizes] 
+DummyLegend = ["Dummy Cond " + str( "{:.2f}".format(dummySize * 1024/8) ) + "KB" for dummySize in dummySizes] 
 pyplot.axhline(y=0.05, linestyle='-', linewidth=1)
 pyplot.legend(AMLegend + 
             # ["Fixed as Minimal"] +
