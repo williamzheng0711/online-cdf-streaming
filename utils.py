@@ -292,9 +292,9 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
         i = 0 
         while (packet_level_timestamp[shift+i]==packet_level_timestamp[shift-1]):
             i += 1
-        s_temp = framesize - (packet_level_data[shift+i])*(packet_level_timestamp[shift+i]-timeLeft)/(packet_level_timestamp[shift+i]-packet_level_timestamp[shift-1])
+        s_temp = framesize - (i+1)*(packet_level_data[shift+i])*(packet_level_timestamp[shift+i]-timeLeft)/(packet_level_timestamp[shift+i]-packet_level_timestamp[shift-1])
         if (s_temp<=0):
-            t_cost = (framesize/packet_level_data[shift+i]) * (packet_level_timestamp[shift+i] - packet_level_timestamp[shift-1] )
+            t_cost = (framesize/(packet_level_data[shift+i]*(i+1))) * (packet_level_timestamp[shift+i] - packet_level_timestamp[shift-1] )
             t_out = max(packet_level_timestamp[shift-1],runningTime) +  t_cost
             return [t_out]
         framesize = s_temp
