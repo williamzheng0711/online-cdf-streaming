@@ -16,7 +16,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 13
+whichVideo = 8
 # Testing Set Size
 howLongIsVideoInSeconds = 150
 
@@ -87,6 +87,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
         if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
             print("Now is time: " + str(runningTime) ) 
+
         ########################################################################################
 
         if (runningTime > howLongIsVideoInSeconds):
@@ -106,18 +107,23 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
+        
+        
         #######################################################################################
         suggestedFrameSize = -np.Infinity
 
         # delta = runningTime -  frame_prepared_time[singleFrame]
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = max( (1/FPS - delta),0 )
+
+
+
         if (estimatingType == "ProbabilityPredict"):
             backLen = 0
             if (sendingDummyData == True):
-                backLen = 1200
+                backLen = 3000
             else: 
-                backLen = 1200
+                backLen = 3000
             try:
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
                                             pastDurations= transmitHistoryTimeLog,
@@ -141,7 +147,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 if (len(subLongSeq)>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
                     suggestedFrameSize = quantValue
-                    # if (runningTime > 50):
+                    # if (runningTime > 130):
                     #     pyplot.hist(subLongSeq, bins=60)
                     #     pyplot.axvline(x=quantValue, color = "black")
                     #     pyplot.show()
@@ -165,7 +171,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
         elif (estimatingType == "Marginal"):
-            backLen = 1200
+            backLen = 3000
             try:
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog(
                                             pastDurations= transmitHistoryTimeLog,
@@ -210,6 +216,12 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
         
+
+
+
+
+
+        # Above is case-wise, now it is general to transmit a (video) frame
         thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
     
         # Until now, the suggestedFrameSize is fixed.
@@ -239,7 +251,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         
         videoCumsize += thisFrameSize
 
+
+
+
         # countLoop = 0
+        # Send dummy frame if necessary
         if (sendDummyFrame == True):   
             while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
                 # countLoop += 1
@@ -391,8 +407,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.4 , num=7)
-dummySizes = np.linspace(0.05*1000/1024, 0.1*1000/1024, num=4)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.4 , num=3)
+dummySizes = np.linspace(0.05*1000/1024, 0.1*1000/1024, num=2)
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Minimal_Lossrate_MFS = []
