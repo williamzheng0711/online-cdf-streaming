@@ -421,7 +421,7 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.3 , num=6)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.3 , num=10)
 dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=4)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
