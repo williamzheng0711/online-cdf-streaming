@@ -282,23 +282,21 @@ def F(pilotTime, int_C, timeSeq):
 #         shift = shift +1
 
 
-
+# I think there is no problem with this snipper.
 def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize):
 
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     timeLeft = runningTime
 
-    while (framesize > 0): 
-        i = 0 
-        while (packet_level_timestamp[shift+i]==packet_level_timestamp[shift-1]):
-            i += 1
-        s_temp = framesize - (i+1)*(packet_level_data[shift+i])*(packet_level_timestamp[shift+i]-timeLeft)/(packet_level_timestamp[shift+i]-packet_level_timestamp[shift-1])
+    while (framesize > 0):
+        s_temp = framesize - (packet_level_data[shift])*(packet_level_timestamp[shift]-timeLeft)/(packet_level_timestamp[shift]-packet_level_timestamp[shift-1])
         if (s_temp<=0):
-            t_cost = (framesize/(packet_level_data[shift+i]*(i+1))) * (packet_level_timestamp[shift+i] - packet_level_timestamp[shift-1] )
+            t_cost = (framesize/(packet_level_data[shift])) * (packet_level_timestamp[shift] - packet_level_timestamp[shift-1] )
             t_out = max(packet_level_timestamp[shift-1],runningTime) +  t_cost
+            assert t_out <= packet_level_timestamp[shift]
             return [t_out]
         framesize = s_temp
-        timeLeft = packet_level_timestamp[shift+i]
+        timeLeft = packet_level_timestamp[shift]
         shift = shift +1
         
     # while (framesize > 0): 
@@ -322,43 +320,57 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
 
 
 
+
+# need to be checked!!!!!
+# pastDurations= transmitHistoryTimeLog,
+# pastDurationsCum= transmitHistoryTimeCum,
+# pastSizes= realVideoFrameSize, 
+# backLen= backLen, usually set as 1000 or 3000
+# timeSlot= min(T_i + timeBuffer/2, 1/FPS )
+# intNumOfSlots is 0, 1, 2...
+
 def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
     toReturn = 0
-    u = find_le_index(a=pastDurationsCum, x=pastDurationsCum[-1] - intNumOfSlots * timeSlot)
-    # print(str(u) + " U value" )
-    t_res_u = pastDurationsCum[-1] - pastDurationsCum[u] - intNumOfSlots * timeSlot
-    l = find_le_index(a=pastDurationsCum, x=pastDurationsCum[u]-timeSlot+t_res_u)
-    if (u==l and u!=0):
-        toReturn = timeSlot * pastSizes[u]/pastDurations[u]
+    timeSlotEnd = pastDurationsCum[-1] - intNumOfSlots * timeSlot
+    timeSlotStart = timeSlotEnd - timeSlot
+    u = find_ge_index(a= pastDurationsCum, x= pastDurationsCum[-1] - intNumOfSlots * timeSlot)
+    t_res_u = pastDurationsCum[u] - timeSlotEnd
+    l = find_ge_index(a= pastDurationsCum, x=timeSlotStart)
+    t_res_l = pastDurationsCum[l] - timeSlotStart
+
+    if (u == l):
+        toReturn = (timeSlot/pastDurations[u]) * pastSizes[u]
     else:
-        if (u == 0 and l == 0):
-            t_res_l = timeSlot - t_res_u
-        else:
-            t_res_l = timeSlot - t_res_u - max( pastDurationsCum[u-1] - pastDurationsCum[l+1] ,0 )
+        # Note that [l:u+1] actually sums up l up to u (inclusively). 
+        toReturn = sum(pastSizes[l:u+1]) - (t_res_u/pastDurations[u])*pastSizes[u] - (t_res_l/pastDurations[l])*pastSizes[l]
+    # print("l="+str(l) + " u="+str(u) + "    toReturn: " + str(toReturn))
 
-        toReturn = (t_res_u/pastDurations[u])*pastSizes[u] + (t_res_l/pastDurations[l])*pastSizes[l] + sum(pastSizes[l+1:u])
-
-    if (u<l or toReturn <0):
-        print("u: " + str(u) + "  l: " + str(l) + " t_res_u=" +str(t_res_u) + " t_res_l=" +str(t_res_l)+ "  valueDecided: " + str(toReturn))
     return toReturn
 
 
 
-def generatingBackwardSizeFromLog(pastDurations, pastDurationsCum, pastSizes, backLen, timeSlot):
+# pastDurations= transmitHistoryTimeLog,
+# pastDurationsCum= transmitHistoryTimeCum,
+# pastSizes= realVideoFrameSize, 
+# backLen= backLen, usually set as 1000 or 3000 or sth
+# timeSlot= min(T_i + timeBuffer/2, 1/FPS )
+def generatingBackwardSizeFromLog_fixLen(pastDurations, pastDurationsCum, pastSizes, backLen, timeSlot):
     pilot = 0
     result = []
     numOfSlots = 0
 
     while ( numOfSlots < backLen and (numOfSlots+1)*timeSlot <= pastDurationsCum[-1] ):
+        # calculate the numOfSlots-th size value
         size = CumSize(intNumOfSlots = numOfSlots, 
                     pastDurationsCum = pastDurationsCum,
                     pastDurations= pastDurations,
                     pastSizes = pastSizes,
                     timeSlot= timeSlot) 
-        if (size<0): 
-            print("wrong!")
-        result.insert(0, size)
-        numOfSlots += 1
-        pilot = pilot + timeSlot
+        if (size>=0): 
+            result.insert(0, size)
+            numOfSlots += 1
+            pilot = pilot + timeSlot
+        else: 
+            break
 
     return result
