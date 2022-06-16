@@ -526,7 +526,7 @@ pyplot.ylabel("Loss rate")
 # for ix in range(len(mAxis)):
 #     pyplot.plot(minFrameSizes, AM_LossRateMatrix_MFS[ix], '-s', markersize=2, linewidth=1)
 
-pyplot.plot(minFrameSizes, Minimal_Lossrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
+# pyplot.plot(minFrameSizes, Minimal_Lossrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
 
 
 pyplot.plot(minFrameSizes, Cond_Lossrate_MFS, '-s',markersize=2, linewidth=1.5)
@@ -539,7 +539,7 @@ DummyLegend = ["Dummy Cond " + str( "{:.2f}".format(dummySize * 1024/8) ) + "KB"
 pyplot.axhline(y=0.05, linestyle='-', linewidth=1)
 pyplot.legend(
             # AMLegend + 
-            ["Fixed as Minimal"] +
+            # ["Fixed as Minimal"] +
             ["Empirical Condt'l"] + 
             DummyLegend +
             # ["Marginal"] + 
@@ -558,7 +558,7 @@ pyplot.ylabel("Bitrate (in Mbps)")
 # for ix in range(len(mAxis)):
 #     pyplot.plot(minFrameSizes, AM_BitrateMatrix_MFS[ix], '-s', markersize=2, linewidth=1)
 
-pyplot.plot(minFrameSizes, Minimal_Bitrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
+# pyplot.plot(minFrameSizes, Minimal_Bitrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
 
 pyplot.plot(minFrameSizes, Cond_Bitrate_MFS, '-s', markersize=2, linewidth=1.5)
 for idx in range(len(dummySizes)):
@@ -567,7 +567,7 @@ for idx in range(len(dummySizes)):
 
 pyplot.legend(
             # AMLegend + 
-            ["Fixed as Minimal"] + 
+            # ["Fixed as Minimal"] + 
             ["Empirical Condt'l"] +
             DummyLegend, 
             # ["Marginal"],
