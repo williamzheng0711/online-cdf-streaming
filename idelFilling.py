@@ -143,9 +143,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
             else:
                 lookbackwardHistogramS = []
-            
-            # print(lookbackwardHistogramS)
-            
+                        
             if (len(lookbackwardHistogramS)>100):
                 effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
                 decision_list = lookbackwardHistogramS
@@ -158,14 +156,14 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 if (len(set(subLongSeq))>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
                     suggestedFrameSize = quantValue
-                    if ( runningTime > 100):
-                        # print(subLongSeq)
-                        pyplot.hist(subLongSeq, bins=60)
-                        pyplot.axvline(x=quantValue, color = "black")
-                        pyplot.show()
-                        # pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
-                        # pyplot.hist(decision_list, bins=100)
-                        # pyplot.show()
+                    # if ( runningTime > 100):
+                    #     # print(subLongSeq)
+                    #     pyplot.hist(subLongSeq, bins=60)
+                    #     pyplot.axvline(x=quantValue, color = "black")
+                    #     pyplot.show()
+                    #     pyplot.xlim([np.percentile(decision_list,0), np.percentile(decision_list,99.5)]) 
+                    #     pyplot.hist(decision_list, bins=100)
+                    #     pyplot.show()
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
@@ -317,7 +315,7 @@ Minimal_Bitrate = []
 Marginal_Lossrate = []
 Marginal_Bitrate = []
 
-a_small_minimal_framesize = 0.02
+a_small_minimal_framesize = 0.05
 mAxis = [5,16,128]
 
 
@@ -423,8 +421,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=2)
-dummySizes = np.linspace(0.01*1000/1024, 0.09*1000/1024, num=2)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.3 , num=6)
+dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=4)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
