@@ -16,7 +16,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 13
+whichVideo = 8
 # Testing Set Size
 howLongIsVideoInSeconds = 200
 
@@ -131,7 +131,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 backLen = 1000
             else: 
                 backLen = 1000
-            timeSlot= min(T_i + timeBuffer/2, 1/FPS )
+            # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
+            # timeSlot= min(T_i + timeBuffer, 1/FPS )
+            timeSlot= T_i + timeBuffer
             if (runningTime >= 100*timeSlot):
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                             pastDurations= transmitHistoryTimeLog,
@@ -167,6 +169,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
+                    # print(suggestedFrameSize)
             
             else:
                 if (len(throughputHistoryLog) > 0 ):
@@ -315,7 +318,7 @@ Minimal_Bitrate = []
 Marginal_Lossrate = []
 Marginal_Bitrate = []
 
-a_small_minimal_framesize = 0.05
+a_small_minimal_framesize = 0.00000005
 mAxis = [5,16,128]
 
 
@@ -421,8 +424,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.3 , num=10)
-dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=4)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.0001 , num=3)
+dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=2)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
@@ -432,6 +435,7 @@ Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
 some_initial_buffer = 1/FPS
+# some_initial_buffer = 0
 
 
 for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
