@@ -29,7 +29,9 @@ packet_level_time_training = []
 
 moving_window = 5
 
+cut_off_time = 100
 
+assert cut_off_time < howLongIsVideoInSeconds
 
 # In case that there are multiple packets in trace data having same timestamps, we merge them
 for suffixNum in range(whichVideo,whichVideo+1):
@@ -91,6 +93,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     videoCumsize = 0
 
+    now_go_real = False
+
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
         totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
@@ -111,12 +115,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
         if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
             # print("Some frame skipped!")
-            count_skip = count_skip + 1
-            skipNumberList[ floor(runningTime) ] += 1
+            if (runningTime>= cut_off_time):
+                count_skip = count_skip + 1
+                skipNumberList[ floor(runningTime) ] += 1
             timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
             continue
 
         
+        if (runningTime >= cut_off_time):
+            now_go_real = True
         
         #######################################################################################
         suggestedFrameSize = -np.Infinity
@@ -264,7 +271,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         else:
             transmitHistoryTimeCum.append(uploadDuration)
         
-        videoCumsize += thisFrameSize
+        if (now_go_real):
+            videoCumsize += thisFrameSize
 
         # print("It's frame No." + str(singleFrame) + ". And the time cost is" + str(uploadDuration) + ". And size is " +str(thisFrameSize) + "Mb")
 
@@ -448,10 +456,10 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
                         dummyDataSize= 0 )
 
     count_skip_conditional_MFS = ConditionalProposed_MFS[2]
-    Cond_Lossrate_MFS.append(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS))
-    Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds)
-    print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/(howLongIsVideoInSeconds*FPS)) )
+    Cond_Lossrate_MFS.append(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS))
+    Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time))
+    print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
+        " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)) )
 
 
     for dummySize, idx in zip(dummySizes,range(len(dummySizes))):
@@ -464,10 +472,10 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
                             dummyDataSize= dummySize )
 
         count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
-        Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS))
-        Cond_Bitrate_Dummy_MFS[idx][idxMFS]= (ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds)
-        print("Cond'l Proposed Method (dummysize=" + str(dummySize*1024/8) + "KB). Bitrate: " + str(ConditionalProposed_MFS_Dummy[0]/howLongIsVideoInSeconds) + 
-            " (Mbps). Loss rate: " + str(count_skip_conditional_MFS_dummy/(howLongIsVideoInSeconds*FPS)) )
+        Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/((howLongIsVideoInSeconds-cut_off_time)*FPS))
+        Cond_Bitrate_Dummy_MFS[idx][idxMFS]= (ConditionalProposed_MFS_Dummy[0]/(howLongIsVideoInSeconds-cut_off_time))
+        print("Cond'l Proposed Method (dummysize=" + str(dummySize*1024/8) + "KB). Bitrate: " + str(ConditionalProposed_MFS_Dummy[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
+            " (Mbps). Loss rate: " + str(count_skip_conditional_MFS_dummy/((howLongIsVideoInSeconds-cut_off_time)*FPS)) )
 
 
     MinimalFrameScheme_MFS = uploadProcess(
@@ -479,10 +487,10 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
                         dummyDataSize= 0 )
 
     count_skip_minimal_MFS = MinimalFrameScheme_MFS[2]
-    Minimal_Lossrate_MFS.append(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS))
-    Minimal_Bitrate_MFS.append(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds )
-    print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme_MFS[0] / howLongIsVideoInSeconds) + 
-        " (Mbps). Loss rate: " + str(count_skip_minimal_MFS/(howLongIsVideoInSeconds*FPS)))
+    Minimal_Lossrate_MFS.append(count_skip_minimal_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS))
+    Minimal_Bitrate_MFS.append(MinimalFrameScheme_MFS[0] / (howLongIsVideoInSeconds-cut_off_time) )
+    print("Minimal Framesize Method. Bitrate: " + str(MinimalFrameScheme_MFS[0] / (howLongIsVideoInSeconds-cut_off_time)) + 
+        " (Mbps). Loss rate: " + str(count_skip_minimal_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)))
 
     # MarginalScheme_MFS = uploadProcess(
     #                     minimal_framesize = thisMFS, 
@@ -515,10 +523,10 @@ for trackUsed, ix in zip(mAxis,range(len(mAxis))):
                             dummyDataSize= 0 )
 
         count_skip_AM_MFS = Arithmetic_Mean_MFS[2]
-        AM_LossRateMatrix_MFS[ix][iy] = count_skip_AM_MFS/(howLongIsVideoInSeconds*FPS)
-        AM_BitrateMatrix_MFS[ix][iy] = Arithmetic_Mean_MFS[0] / howLongIsVideoInSeconds 
-        print("Arithmetic Mean. Bitrate :(M = "+str(trackUsed)+"): " + str(Arithmetic_Mean_MFS[0]/howLongIsVideoInSeconds) + 
-            " (Mbps). Loss rate: " + str(count_skip_AM_MFS/(howLongIsVideoInSeconds*FPS)))
+        AM_LossRateMatrix_MFS[ix][iy] = count_skip_AM_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)
+        AM_BitrateMatrix_MFS[ix][iy] = Arithmetic_Mean_MFS[0] / (howLongIsVideoInSeconds-cut_off_time) 
+        print("Arithmetic Mean. Bitrate :(M = "+str(trackUsed)+"): " + str(Arithmetic_Mean_MFS[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
+            " (Mbps). Loss rate: " + str(count_skip_AM_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)))
 
 
 
