@@ -442,8 +442,8 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-some_initial_buffer = 1/FPS
-# some_initial_buffer = 0
+# some_initial_buffer = 1/FPS
+some_initial_buffer = 0
 
 
 for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
