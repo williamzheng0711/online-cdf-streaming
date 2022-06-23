@@ -5,6 +5,7 @@
 
 
 from math import floor
+from time import time
 import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
@@ -18,7 +19,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 8
 # Testing Set Size
-howLongIsVideoInSeconds = 200
+howLongIsVideoInSeconds = 2000
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -29,7 +30,7 @@ packet_level_time_training = []
 
 moving_window = 5
 
-cut_off_time = 100
+cut_off_time = 1000
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -70,9 +71,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     realVideoFrameSize = []
 
     timeline = np.arange(0, howLongIsVideoInSeconds, step = 1)
+    # skipNumberList stores howmany frames are dropped second by second
     skipNumberList = [0] * len(timeline)
-    totalNumberList = [0] * len(timeline)
-    effectiveNumberList = [0] * len(timeline)
+
+    # totalNumberList = [0] * len(timeline)
+    # effectiveNumberList = [0] * len(timeline)
 
     # This is to SKIP the training part of the data.
     # Hence ensures that training data is not over-lapping with testing data
@@ -97,9 +100,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
-        totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
+
+        # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
         if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
-            print("Now is time: " + str(runningTime) ) 
+            print("Now is time: " + str(runningTime) )
 
         ########################################################################################
 
@@ -109,16 +113,21 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         if (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]): 
             # Then we need to wait until singleframe is generated and available to send.
             if (sendingDummyData == False):
+                # if does not need to send dummy, then wait until frame is ready without doing anything
                 runningTime = frame_prepared_time[singleFrame]
             elif (sendingDummyData == True):
                 sendDummyFrame = True
 
-        if (runningTime - frame_prepared_time[singleFrame] > 1/FPS + timeBuffer):
+        if (runningTime - frame_prepared_time[singleFrame] >= 1/FPS + timeBuffer):
             # print("Some frame skipped!")
             if (runningTime>= cut_off_time):
                 count_skip = count_skip + 1
                 skipNumberList[ floor(runningTime) ] += 1
-            timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
+
+            # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0)
+            timeBuffer = max ( pBufferTime - max(runningTime - (frame_prepared_time[singleFrame] + 1/FPS) ,0 ) , 0 )
+            # print(str(timeBuffer) + " " + str(timeBuffer2))
+
             continue
 
         
@@ -141,7 +150,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
             timeSlot= T_i + timeBuffer
-            if (runningTime >= 100*timeSlot):
+            if (runningTime >= backLen*timeSlot):
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                             pastDurations= transmitHistoryTimeLog,
                                             pastDurationsCum= transmitHistoryTimeCum,
@@ -154,13 +163,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 lookbackwardHistogramS = []
                         
             if (len(lookbackwardHistogramS)>100):
-                effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
+                # effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
                 decision_list = lookbackwardHistogramS
                 Ideal_S_iMinus1 = decision_list[-1]
                 subLongSeq = [
                     decision_list[i+1] 
                     for _, i in zip(decision_list,range( len(decision_list) )) 
-                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.025 ) and  i< len(decision_list) -1 ) ]
+                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.05 ) and  i< len(decision_list) -1 ) ]
                                     
                 if (len(set(subLongSeq))>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
@@ -190,40 +199,40 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                         suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
 
-        elif (estimatingType == "Marginal"):
-            backLen = 1000
-            try:
-                lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
-                                            pastDurations= transmitHistoryTimeLog,
-                                            pastDurationsCum= transmitHistoryTimeCum,
-                                            pastSizes= realVideoFrameSize, 
-                                            backLen= backLen,
-                                            timeSlot=  min(T_i + timeBuffer/2, 1/FPS )
-                                        )
+        # elif (estimatingType == "Marginal"):
+        #     backLen = 1000
+        #     try:
+        #         lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
+        #                                     pastDurations= transmitHistoryTimeLog,
+        #                                     pastDurationsCum= transmitHistoryTimeCum,
+        #                                     pastSizes= realVideoFrameSize, 
+        #                                     backLen= backLen,
+        #                                     timeSlot=  min(T_i + timeBuffer/2, 1/FPS )
+        #                                 )
 
-            except:
-                print("hahah")
-                lookbackwardHistogramS = []
+        #     except:
+        #         print("hahah")
+        #         lookbackwardHistogramS = []
 
-            # print(len(lookbackwardHistogramS))
+        #     # print(len(lookbackwardHistogramS))
             
-            if (len(lookbackwardHistogramS)>100):
-                effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
-                decision_list = lookbackwardHistogramS
+        #     if (len(lookbackwardHistogramS)>100):
+        #         # effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
+        #         decision_list = lookbackwardHistogramS
 
-                quantValue = quantile(decision_list, pEpsilon)
-                suggestedFrameSize = quantValue
+        #         quantValue = quantile(decision_list, pEpsilon)
+        #         suggestedFrameSize = quantValue
             
-            else:
-                if (len(throughputHistoryLog) > 0 ):
-                    try:
-                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                        suggestedFrameSize = (1/FPS) * C_i_hat_AM
-                    except:
-                        suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+        #     else:
+        #         if (len(throughputHistoryLog) > 0 ):
+        #             try:
+        #                 adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+        #                 adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+        #                                         throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
+        #                 C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+        #                 suggestedFrameSize = (1/FPS) * C_i_hat_AM
+        #             except:
+        #                 suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
         elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
             try:
@@ -262,7 +271,12 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         uploadDuration = uploadFinishTime - runningTime
         runningTime = runningTime + uploadDuration 
 
-        timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame],0 ) , 0 ) 
+        # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0) if max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0) <= pBufferTime else pBufferTime
+        # timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame],0 ) , 0 ) 
+        timeBuffer = max ( pBufferTime - max(runningTime - (frame_prepared_time[singleFrame] + 1/FPS) ,0 ) , 0 )
+
+        # print(str(timeBuffer2) + " " + str(timeBuffer)) 
+
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
         transmitHistoryTimeLog.append(uploadDuration)
@@ -297,7 +311,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 runningTime = runningTime + uploadDuration 
                 # print(str(singleFrame)+ "  uploadDuration: " +str(uploadDuration))
 
-                timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame  ],0 ) , 0 ) 
+                # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0)
+                timeBuffer = max ( pBufferTime - max(runningTime - (frame_prepared_time[singleFrame] + 1/FPS) ,0 ) , 0 )
+                # print(str(timeBuffer2) + " " + str(timeBuffer)) 
                 throughputMeasure =  thisFrameSize / uploadDuration
                 throughputHistoryLog.append(throughputMeasure)
                 transmitHistoryTimeLog.append(uploadDuration)
@@ -442,8 +458,8 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-# some_initial_buffer = 1/FPS
-some_initial_buffer = 0
+some_initial_buffer = 1/FPS
+# some_initial_buffer = 0
 
 
 for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
