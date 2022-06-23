@@ -19,7 +19,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 8
 # Testing Set Size
-howLongIsVideoInSeconds = 2000
+howLongIsVideoInSeconds = 500
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -30,7 +30,7 @@ packet_level_time_training = []
 
 moving_window = 5
 
-cut_off_time = 1000
+cut_off_time = 200
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -142,11 +142,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         T_i = max( (1/FPS - delta),0 )
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = 0
-            if (sendingDummyData == True):
-                backLen = 1000
-            else: 
-                backLen = 1000
+            backLen = FPS * 100
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
             timeSlot= T_i + timeBuffer
