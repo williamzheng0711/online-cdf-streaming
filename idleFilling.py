@@ -19,7 +19,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 8
 # Testing Set Size
-howLongIsVideoInSeconds = 500
+howLongIsVideoInSeconds = 1000
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -28,9 +28,8 @@ initialTime = 0
 packet_level_integral_C_training = []
 packet_level_time_training = []
 
-moving_window = 5
 
-cut_off_time = 200
+cut_off_time = 600
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -98,12 +97,21 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     now_go_real = False
 
+    count_Cond_AlgoTimes = 0
+    count_Marg_AlgoTimes = 0
+
+    consecutive_skip = 0
+    consecutive_skip_box = []
+
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
 
         # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
         if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
-            print("Now is time: " + str(runningTime) )
+            if (runningTime >= cut_off_time):
+                print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
+            count_Cond_AlgoTimes = 0
+            count_Marg_AlgoTimes = 0
 
         ########################################################################################
 
@@ -123,6 +131,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             if (runningTime>= cut_off_time):
                 count_skip = count_skip + 1
                 skipNumberList[ floor(runningTime) ] += 1
+                consecutive_skip += 1
 
             # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0)
             timeBuffer = max ( pBufferTime - max(runningTime - (frame_prepared_time[singleFrame] + 1/FPS) ,0 ) , 0 )
@@ -137,16 +146,22 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         #######################################################################################
         suggestedFrameSize = -np.Infinity
 
+        if (consecutive_skip >=1):
+            consecutive_skip_box.append(consecutive_skip)
+        consecutive_skip = 0
+
         # delta = runningTime -  frame_prepared_time[singleFrame]
         delta = runningTime -  frame_prepared_time[singleFrame]
         T_i = max( (1/FPS - delta),0 )
+
+        switch_to_AM = False
 
         if (estimatingType == "ProbabilityPredict"):
             backLen = FPS * 100
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
-            timeSlot= T_i + timeBuffer
-            if (runningTime >= backLen*timeSlot):
+            timeSlot= T_i + timeBuffer + 1/FPS
+            if (runningTime >= backLen*timeSlot ):
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                             pastDurations= transmitHistoryTimeLog,
                                             pastDurationsCum= transmitHistoryTimeCum,
@@ -165,12 +180,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 subLongSeq = [
                     decision_list[i+1] 
                     for _, i in zip(decision_list,range( len(decision_list) )) 
-                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.05 ) and  i< len(decision_list) -1 ) ]
+                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.025 ) and  i< len(decision_list) -1 ) ]
                                     
                 if (len(set(subLongSeq))>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
                     suggestedFrameSize = quantValue
-                    # if ( runningTime > 100):
+                    count_Cond_AlgoTimes += 1
+                    # if ( runningTime > 400):
                     #     # print(subLongSeq)
                     #     pyplot.hist(subLongSeq, bins=60)
                     #     pyplot.axvline(x=quantValue, color = "black")
@@ -181,19 +197,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 else:
                     quantValue = quantile(decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
+                    count_Marg_AlgoTimes += 1
                     # print(suggestedFrameSize)
-            
-            else:
-                if (len(throughputHistoryLog) > 0 ):
-                    try:
-                        adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                        adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
-                                                throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                        C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                        suggestedFrameSize = (1/FPS) * C_i_hat_AM
-                    except:
-                        suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
+            elif (len(throughputHistoryLog)==0):
+                switch_to_AM = True
 
         # elif (estimatingType == "Marginal"):
         #     backLen = 1000
@@ -230,22 +238,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         #             except:
         #                 suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
 
-        elif (estimatingType == "A.M." and len(throughputHistoryLog) > 0 ):
-            try:
-                adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
-                adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
+        if ( (estimatingType == "A.M." or switch_to_AM == True ) and len(throughputHistoryLog) > 0 ):
+            adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
+            adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
                                         throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-                C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
-                suggestedFrameSize = (1/FPS) * C_i_hat_AM
-            except:
-                suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
-        
+            C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+            suggestedFrameSize = (1/FPS) * C_i_hat_AM
+
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
-        
-
-
-
 
 
         # Above is case-wise, now it is general to transmit a (video) frame
@@ -267,10 +268,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         uploadDuration = uploadFinishTime - runningTime
         runningTime = runningTime + uploadDuration 
 
+        # Calculate new time Buffer
         # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0) if max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0) <= pBufferTime else pBufferTime
         # timeBuffer = max ( pBufferTime - max(runningTime - frame_prepared_time[singleFrame],0 ) , 0 ) 
         timeBuffer = max ( pBufferTime - max(runningTime - (frame_prepared_time[singleFrame] + 1/FPS) ,0 ) , 0 )
-
         # print(str(timeBuffer2) + " " + str(timeBuffer)) 
 
         throughputMeasure =  thisFrameSize / uploadDuration
@@ -321,6 +322,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         
         # print(countLoop)
         sendDummyFrame == False
+
+    if (len(consecutive_skip_box)>0):
+        print(str(mean(consecutive_skip_box)) + " " +str(max(consecutive_skip_box))   )
 
     return [videoCumsize, [], count_skip, minimal_framesize, dummyDataSize]
 
@@ -459,19 +463,19 @@ some_initial_buffer = 1/FPS
 
 
 for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
-    ConditionalProposed_MFS = uploadProcess(
-                        minimal_framesize= thisMFS, 
-                        estimatingType = "ProbabilityPredict", 
-                        pTrackUsed=5, 
-                        pBufferTime = some_initial_buffer,
-                        sendingDummyData= False,
-                        dummyDataSize= 0 )
+    # ConditionalProposed_MFS = uploadProcess(
+    #                     minimal_framesize= thisMFS, 
+    #                     estimatingType = "ProbabilityPredict", 
+    #                     pTrackUsed=5, 
+    #                     pBufferTime = some_initial_buffer,
+    #                     sendingDummyData= False,
+    #                     dummyDataSize= 0 )
 
-    count_skip_conditional_MFS = ConditionalProposed_MFS[2]
-    Cond_Lossrate_MFS.append(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS))
-    Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time))
-    print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
-        " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)) )
+    # count_skip_conditional_MFS = ConditionalProposed_MFS[2]
+    # Cond_Lossrate_MFS.append(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS))
+    # Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time))
+    # print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
+    #     " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)) )
 
 
     for dummySize, idx in zip(dummySizes,range(len(dummySizes))):
