@@ -19,7 +19,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 FPS = 30
 whichVideo = 8
 # Testing Set Size
-howLongIsVideoInSeconds = 1000
+howLongIsVideoInSeconds = 1200
 
 networkEnvTime = []
 networkEnvPacket= []
@@ -108,8 +108,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
         # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
         if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
-            if (runningTime >= cut_off_time):
-                print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
+            # if (runningTime >= cut_off_time):
+            #     print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
             count_Cond_AlgoTimes = 0
             count_Marg_AlgoTimes = 0
 
@@ -448,8 +448,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.0001 , num=3)
-dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=2)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.1 , num=10)
+dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=3)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
@@ -555,7 +555,7 @@ pyplot.ylabel("Loss rate")
 # pyplot.plot(minFrameSizes, Minimal_Lossrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
 
 
-pyplot.plot(minFrameSizes, Cond_Lossrate_MFS, '-s',markersize=2, linewidth=1.5)
+# pyplot.plot(minFrameSizes, Cond_Lossrate_MFS, '-s',markersize=2, linewidth=1.5)
 for idx in range(len(dummySizes)):
     pyplot.plot(minFrameSizes, Cond_Lossrate_Dummy_MFS[idx], '-s', markersize=4, linewidth=2)
 # pyplot.plot(minFrameSizes, Marginal_Lossrate_MFS, '-s', markersize=2, linewidth=1.5)
@@ -566,7 +566,7 @@ pyplot.axhline(y=0.05, linestyle='-', linewidth=1)
 pyplot.legend(
             # AMLegend + 
             # ["Fixed as Minimal"] +
-            ["Empirical Condt'l"] + 
+            # ["Empirical Condt'l"] + 
             DummyLegend +
             # ["Marginal"] + 
             ["Const. 0.05"], 
@@ -586,7 +586,7 @@ pyplot.ylabel("Bitrate (in Mbps)")
 
 # pyplot.plot(minFrameSizes, Minimal_Bitrate_MFS, '-s', color = "black", markersize = 2, linewidth = 1)
 
-pyplot.plot(minFrameSizes, Cond_Bitrate_MFS, '-s', markersize=2, linewidth=1.5)
+# pyplot.plot(minFrameSizes, Cond_Bitrate_MFS, '-s', markersize=2, linewidth=1.5)
 for idx in range(len(dummySizes)):
     pyplot.plot(minFrameSizes, Cond_Bitrate_Dummy_MFS[idx], '-s', markersize=4, linewidth=2)
 # pyplot.plot(minFrameSizes, Marginal_Bitrate_MFS, '-s',markersize=2, linewidth=1.5)
@@ -594,7 +594,7 @@ for idx in range(len(dummySizes)):
 pyplot.legend(
             # AMLegend + 
             # ["Fixed as Minimal"] + 
-            ["Empirical Condt'l"] +
+            # ["Empirical Condt'l"] +
             DummyLegend, 
             # ["Marginal"],
             loc="best")
