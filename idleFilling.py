@@ -17,7 +17,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 8
+whichVideo = 13
 # Testing Set Size
 howLongIsVideoInSeconds = 1200
 
@@ -180,7 +180,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 subLongSeq = [
                     decision_list[i+1] 
                     for _, i in zip(decision_list,range( len(decision_list) )) 
-                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.025 ) and  i< len(decision_list) -1 ) ]
+                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.05 ) and  i< len(decision_list) -1 ) ]
                                     
                 if (len(set(subLongSeq))>25):
                     quantValue = quantile(subLongSeq, pEpsilon)
@@ -448,8 +448,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.1 , num=10)
-dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=3)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=7)
+dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=4)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
@@ -458,8 +458,8 @@ Minimal_Bitrate_MFS = []
 Marginal_Lossrate_MFS = []
 Marginal_Bitrate_MFS = []
 
-some_initial_buffer = 1/FPS
-# some_initial_buffer = 0
+# some_initial_buffer = 1/FPS
+some_initial_buffer = 0
 
 
 for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
