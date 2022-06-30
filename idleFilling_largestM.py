@@ -18,12 +18,13 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 2
-# Testing Set Size
-howLongIsVideoInSeconds = 2200
+whichVideo = 15
 
-networkEnvTime = []
-networkEnvPacket= []
+# Testing Set Size
+howLongIsVideoInSeconds = 2100 
+
+networkEnvTime = [] 
+networkEnvPacket= [] 
 count = 0
 initialTime = 0
 packet_level_integral_C_training = []
@@ -53,13 +54,13 @@ for suffixNum in range(whichVideo,whichVideo+1):
             count = count  +1 
 
 # Just have a quick idea of the mean throughput
-throughputEstimateInit = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1])
-print( str(throughputEstimateInit) + 
-        "Mbps, this is mean throughput")
+# throughputEstimateInit = sum(networkEnvPacket[1971888:1971888+10000]) / (networkEnvTime[1971888+10000-1]-networkEnvTime[1971888-1])
+# print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
+
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 400
+M = 900
 
 def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
     
@@ -71,9 +72,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     transmitHistoryTimeCum = []
     realVideoFrameSize = []
 
-    timeline = np.arange(0, howLongIsVideoInSeconds, step = 1)
-    # skipNumberList stores howmany frames are dropped second by second
-    skipNumberList = [0] * len(timeline)
 
     # totalNumberList = [0] * len(timeline)
     # effectiveNumberList = [0] * len(timeline)
@@ -101,6 +99,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     count_Cond_AlgoTimes = 0
     count_Marg_AlgoTimes = 0
+    cumPartSize = 0
 
     consecutive_skip = 0
     consecutive_skip_box = []
@@ -115,11 +114,12 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             countFrame += 1
 
         # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
-        if (singleFrame % (10 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
+        if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
             if (runningTime >= cut_off_time):
-                print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
+                print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) )
             count_Cond_AlgoTimes = 0
             count_Marg_AlgoTimes = 0
+            cumPartSize = 0
 
         ########################################################################################
 
@@ -138,8 +138,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             # print("Some frame skipped!")
             if (runningTime>= cut_off_time):
                 count_skip = count_skip + 1
-                print("xxxxxx")
-                skipNumberList[ floor(runningTime) ] += 1
+                # print("xxxxxx")
                 consecutive_skip += 1
 
             # timeBuffer2 = max( (frame_prepared_time[singleFrame] + 1/FPS + timeBuffer) - runningTime, 0)
@@ -161,7 +160,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         switch_to_AM = False
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = FPS * 300
+            backLen = FPS * 1000
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
             timeSlot= T_i + timeBuffer + 1/FPS
@@ -179,12 +178,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             if (len(lookbackwardHistogramS)>0):
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
-                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M)
+                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
                 need_index_plus1 = (need_index + 1)
                 # print(need_index_plus1)
                 decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
                 suggestedFrameSize = quantile(decision_list, pEpsilon)
                 count_Cond_AlgoTimes += 1
+                cumPartSize += suggestedFrameSize
                 # if ( runningTime > cut_off_time):
                 #     # print(real_decision_list)
                 #     pyplot.hist(decision_list, bins=60)
@@ -322,8 +322,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
 
-
-
 colorList = ["red", "orange", "goldenrod"]
 # bufferSizeArray = np.arange(0, 6.25, step = 2)
 Cond_Lossrate = []
@@ -439,7 +437,7 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=3)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.8 , num=3)
 dummySizes = np.linspace(0.01*1000/1024, 0.1*1000/1024, num=2)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
