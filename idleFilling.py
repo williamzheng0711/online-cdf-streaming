@@ -10,14 +10,14 @@ import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
-from numpy import cumsum, quantile
+from numpy import block, cumsum, quantile
 
 network_trace_dir = './dataset/fyp_lab/'
 howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 30
-whichVideo = 13
+whichVideo = 8
 # Testing Set Size
 howLongIsVideoInSeconds = 1200
 
@@ -103,13 +103,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     consecutive_skip = 0
     consecutive_skip_box = []
 
+    lastSize = 0
+
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
 
         # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
-        if (singleFrame % (5 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
-            # if (runningTime >= cut_off_time):
-            #     print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
+        if (singleFrame % (10 * FPS) == 0 and estimatingType == "ProbabilityPredict"):
+            if (runningTime >= cut_off_time):
+                print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " --- Marg (with or w/o dummy) counts: " +str(count_Marg_AlgoTimes) )
             count_Cond_AlgoTimes = 0
             count_Marg_AlgoTimes = 0
 
@@ -130,6 +132,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             # print("Some frame skipped!")
             if (runningTime>= cut_off_time):
                 count_skip = count_skip + 1
+                print("xxxxxx")
                 skipNumberList[ floor(runningTime) ] += 1
                 consecutive_skip += 1
 
@@ -157,7 +160,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         switch_to_AM = False
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = FPS * 100
+            backLen = FPS * 200
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
             timeSlot= T_i + timeBuffer + 1/FPS
@@ -172,22 +175,29 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
             else:
                 lookbackwardHistogramS = []
+            
                         
             if (len(lookbackwardHistogramS)>100):
                 # effectiveNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
                 decision_list = lookbackwardHistogramS
-                Ideal_S_iMinus1 = decision_list[-1]
-                subLongSeq = [
+                Shat_iMinus1 = decision_list[-1]
+                real_decision_list = [
                     decision_list[i+1] 
                     for _, i in zip(decision_list,range( len(decision_list) )) 
-                        if ( (abs( decision_list[i] / Ideal_S_iMinus1 - 1 )<= 0.05 ) and  i< len(decision_list) -1 ) ]
-                                    
-                if (len(set(subLongSeq))>25):
-                    quantValue = quantile(subLongSeq, pEpsilon)
+                        # if ( (  abs( decision_list[i] / Shat_iMinus1 - 1 )<= 1/(4* FPS * timeSlot) ) and  i< len(decision_list) -1 ) ]
+                        if ( (  abs( decision_list[i] / Shat_iMinus1 - 1 )<= 0.01 ) and  i< len(decision_list) -1 ) ]
+                        # if ( (abs( decision_list[i] - Shat_iMinus1 )<= Shat_iMinus1 * 0.15 ) and  i< len(decision_list) -1 ) ]
+                        # if ( i< len(decision_list) -1 ) ]
+                        # double - peak problem? 
+
+
+                if (len(real_decision_list)> 20):
+                    quantValue = quantile(real_decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
+                    # lastSize = quantValue
                     count_Cond_AlgoTimes += 1
-                    # if ( runningTime > 400):
-                    #     # print(subLongSeq)
+                    # if ( runningTime > cut_off_time):
+                    #     # print(real_decision_list)
                     #     pyplot.hist(subLongSeq, bins=60)
                     #     pyplot.axvline(x=quantValue, color = "black")
                     #     pyplot.show()
@@ -195,10 +205,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     #     pyplot.hist(decision_list, bins=100)
                     #     pyplot.show()
                 else:
-                    quantValue = quantile(decision_list, pEpsilon)
+                    # suggestedFrameSize = lastSize
+                    real_decision_list = decision_list
+                    quantValue = quantile(real_decision_list, pEpsilon)
                     suggestedFrameSize = quantValue
                     count_Marg_AlgoTimes += 1
-                    # print(suggestedFrameSize)
+                    # # print(suggestedFrameSize)
+
+                
+                print("real_dicision_listLen: " + str(len(real_decision_list)) + "  |  decided size value: " + str(suggestedFrameSize))
 
             elif (len(throughputHistoryLog)==0):
                 switch_to_AM = True
@@ -448,8 +463,8 @@ mAxis = [5,16,128]
 Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
-minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=7)
-dummySizes = np.linspace(0.025*1000/1024, 0.1*1000/1024, num=4)
+minFrameSizes = np.linspace(a_small_minimal_framesize, 0.2 , num=3)
+dummySizes = np.linspace(0.01*1000/1024, 0.1*1000/1024, num=2)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
@@ -476,6 +491,9 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
     # Cond_Bitrate_MFS.append(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time))
     # print("Cond'l Proposed Method. Bitrate: " + str(ConditionalProposed_MFS[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
     #     " (Mbps). Loss rate: " + str(count_skip_conditional_MFS/((howLongIsVideoInSeconds-cut_off_time)*FPS)) )
+
+
+
 
 
     for dummySize, idx in zip(dummySizes,range(len(dummySizes))):

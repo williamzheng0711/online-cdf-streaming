@@ -374,3 +374,15 @@ def generatingBackwardSizeFromLog_fixLen(pastDurations, pastDurationsCum, pastSi
             break
 
     return result
+
+
+
+def extract_nearest_M_values_index(anArray, centreValue, outLen):
+    if (len(anArray) <= outLen):
+        return anArray
+    else:
+        anArray = np.array(anArray)
+        normalizedArray = np.abs(anArray - centreValue)
+        indexList = sorted(range(len(normalizedArray)), key=lambda k: normalizedArray[k])[0:outLen]
+        return np.array(indexList)
+        
