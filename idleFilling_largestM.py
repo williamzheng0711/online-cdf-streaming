@@ -17,11 +17,11 @@ network_trace_dir = './dataset/fyp_lab/'
 howmany_Bs_IN_1Mb = 1024*1024/8
 
 
-FPS = 30
+FPS = 60
 whichVideo = 15
 
 # Testing Set Size
-howLongIsVideoInSeconds = 2100 
+howLongIsVideoInSeconds = 3100 
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -31,7 +31,7 @@ packet_level_integral_C_training = []
 packet_level_time_training = []
 
 
-cut_off_time = 2000
+cut_off_time = 3000
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -60,7 +60,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 900
+M = 100
 
 def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
     
@@ -160,7 +160,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         switch_to_AM = False
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = FPS * 1000
+            backLen = FPS * 300
             # timeSlot= min(T_i + timeBuffer/2, 1/FPS )
             # timeSlot= min(T_i + timeBuffer, 1/FPS )
             timeSlot= T_i + timeBuffer + 1/FPS
@@ -478,7 +478,7 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
                             pTrackUsed=5, 
                             pBufferTime = some_initial_buffer,
                             sendingDummyData= True, 
-                            dummyDataSize= dummySize )
+                            dummyDataSize= dummySize)
 
         count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
         Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/ConditionalProposed_MFS_Dummy[-1])

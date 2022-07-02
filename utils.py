@@ -1,15 +1,6 @@
-from gettext import find
 import math
-from unittest import result
-from warnings import catch_warnings
-from matplotlib.pyplot import plot, summer
-from numpy.core.fromnumeric import argmax, partition
-from numpy.lib.function_base import median
-from scipy.fftpack import shift
-from scipy.stats import norm
 from scipy.stats import laplace
 import numpy as np
-from numpy.core.fromnumeric import argmax, mean, size, var
 import math
 import random
 import bisect
@@ -287,18 +278,27 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
 
     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
     timeLeft = runningTime
+    # print("runningTime: "+ str(runningTime) + "  shift: " +str(shift))
 
     while (framesize > 0):
         s_temp = framesize - (packet_level_data[shift])*(packet_level_timestamp[shift]-timeLeft)/(packet_level_timestamp[shift]-packet_level_timestamp[shift-1])
+        # print(s_temp)
         if (s_temp<=0):
             t_cost = (framesize/(packet_level_data[shift])) * (packet_level_timestamp[shift] - packet_level_timestamp[shift-1] )
             t_out = max(packet_level_timestamp[shift-1],runningTime) +  t_cost
+            # print("t_cost: "  +str(t_cost))
+            # print(shift)
+            # print(str(t_out) + " ---  " + str(packet_level_timestamp[shift]) )
             assert t_out <= packet_level_timestamp[shift]
             return [t_out]
         framesize = s_temp
         timeLeft = packet_level_timestamp[shift]
         shift = shift +1
+        # print(shift)
+        # print( " ---  " + str(packet_level_timestamp[shift]) )
         
+
+
     # while (framesize > 0): 
     #     if (i == 0):
     #         i = 1
