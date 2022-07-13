@@ -233,46 +233,6 @@ def F(pilotTime, int_C, timeSeq):
 
 
 
-
-# def packet_level_frame_upload_finish_time( runningTime, 
-#                                             packet_level_data, 
-#                                             packet_level_timestamp, 
-#                                             framesize,
-#                                             packet_level_integral_C, 
-#                                             packet_level_time, 
-#                                             toUsePacketRecords ):
-
-#     shift = find_gt_index(a= packet_level_timestamp, x= runningTime)
-#     i = 0 
-
-#     original_framesize = framesize
-
-#     while (framesize > 0): 
-
-#         if (i == 0):
-#             i = 1
-#             s_temp = framesize - packet_level_data[shift]
-#             if (toUsePacketRecords):
-#                 packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-#                 packet_level_time.append(packet_level_timestamp[shift])
-#             if (s_temp<=0):
-#                 t_out = packet_level_timestamp[shift]
-#                 # print(str(original_framesize/(t_out-runningTime)) )
-#                 return [t_out, packet_level_integral_C, packet_level_time]
-#             framesize = s_temp
-#         else: 
-#             s_temp = framesize - packet_level_data[shift]
-#             if (toUsePacketRecords):
-#                 packet_level_integral_C.append(packet_level_integral_C[-1]+ packet_level_data[shift])
-#                 packet_level_time.append(packet_level_timestamp[shift])
-#             if (s_temp<=0): 
-#                 t_out = packet_level_timestamp[shift]
-#                 return [t_out,packet_level_integral_C, packet_level_time]
-#             framesize = s_temp
-
-#         shift = shift +1
-
-
 # I think there is no problem with this snipper.
 def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level_timestamp, framesize):
 
@@ -376,7 +336,7 @@ def generatingBackwardSizeFromLog_fixLen(pastDurations, pastDurationsCum, pastSi
     return result
 
 
-
+# This is to select the closest M values when doing conditioning
 def extract_nearest_M_values_index(anArray, centreValue, outLen):
     if (len(anArray) <= outLen):
         return anArray
@@ -386,3 +346,31 @@ def extract_nearest_M_values_index(anArray, centreValue, outLen):
         indexList = sorted(range(len(normalizedArray)), key=lambda k: normalizedArray[k])[0:outLen]
         return np.array(indexList)
         
+
+
+
+# Given two time value, calculate the maximum amount of data can be transmitted
+def calMaxThroughput(prevTime, laterTime, packet_level_timestamp, packet_level_data):
+    shift = find_gt_index(a= packet_level_timestamp, x= prevTime)
+    maxThroughput = 0
+    while(packet_level_timestamp[shift]<= laterTime):
+        maxThroughput += (packet_level_timestamp[shift] - prevTime)/(packet_level_timestamp[shift] - packet_level_timestamp[shift-1]) * packet_level_data[]
+
+
+
+
+
+    while ():
+        s_temp = framesize - (packet_level_data[shift])*(packet_level_timestamp[shift]-timeLeft)/(packet_level_timestamp[shift]-packet_level_timestamp[shift-1])
+        # print(s_temp)
+        if (s_temp<=0):
+            t_cost = (framesize/(packet_level_data[shift])) * (packet_level_timestamp[shift] - packet_level_timestamp[shift-1] )
+            t_out = max(packet_level_timestamp[shift-1],runningTime) +  t_cost
+            # print("t_cost: "  +str(t_cost))
+            # print(shift)
+            # print(str(t_out) + " ---  " + str(packet_level_timestamp[shift]) )
+            assert t_out <= packet_level_timestamp[shift]
+            return [t_out]
+        framesize = s_temp
+        timeLeft = packet_level_timestamp[shift]
+        shift = shift +1

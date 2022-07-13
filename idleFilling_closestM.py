@@ -4,6 +4,9 @@
 #     May 12, 2022
 
 
+# Largest M means when doing the conditioning step, I only preserve the closet M
+
+
 from ctypes import util
 from math import floor
 from time import time
