@@ -183,17 +183,19 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
                 need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
                 need_index_plus1 = (need_index + 1)
-                # print(need_index_plus1)
                 decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
                 suggestedFrameSize = quantile(decision_list, pEpsilon)
-                count_Cond_AlgoTimes += 1
-                cumPartSize += suggestedFrameSize
-                if ( runningTime > cut_off_time):
 
-                    
+                if ( runningTime > cut_off_time):
+                    maxData = utils.calMaxData(prevTime=runningTime, 
+                                        laterTime=runningTime+timeSlot, 
+                                        packet_level_timestamp= networkEnvTime,
+                                        packet_level_data= networkEnvPacket,)
+
+                    # print("maxData is: " + str(maxData))
 
                     pyplot.hist(decision_list, bins=60)
-                    pyplot.axvline(x=max(decision_list), color="red")
+                    pyplot.axvline(x= maxData, color="red")
                     pyplot.axvline(x=mean(decision_list), color="gold")
                     pyplot.axvline(x=suggestedFrameSize, color="green")
                     pyplot.legend(["Max. throughput s.t. No Drop",

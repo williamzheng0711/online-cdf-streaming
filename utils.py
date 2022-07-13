@@ -350,27 +350,25 @@ def extract_nearest_M_values_index(anArray, centreValue, outLen):
 
 
 # Given two time value, calculate the maximum amount of data can be transmitted
-def calMaxThroughput(prevTime, laterTime, packet_level_timestamp, packet_level_data):
+def calMaxData(prevTime, laterTime, packet_level_timestamp, packet_level_data):
     shift = find_gt_index(a= packet_level_timestamp, x= prevTime)
-    maxThroughput = 0
+
+    # shift1 = shift
+    # print(str(shift) + "  - 1")
+    # print(packet_level_data[shift])
+    maxData = 0
+
     while(packet_level_timestamp[shift]<= laterTime):
-        maxThroughput += (packet_level_timestamp[shift] - prevTime)/(packet_level_timestamp[shift] - packet_level_timestamp[shift-1]) * packet_level_data[]
+        realStartTime = max(packet_level_timestamp[shift-1], prevTime)
+        maxData += packet_level_data[shift] * (packet_level_timestamp[shift] - realStartTime)/(packet_level_timestamp[shift] - packet_level_timestamp[shift-1]) 
+        shift += 1
+        # print(maxData)
 
+    if (packet_level_timestamp[shift] > laterTime):
+        realStartTime = max(packet_level_timestamp[shift-1], prevTime)
+        maxData += packet_level_data[shift] * (laterTime - realStartTime)/(packet_level_timestamp[shift] - packet_level_timestamp[shift-1]) 
 
+    # print(str(shift) + " - 2")
+    # print(sum(packet_level_data[shift1:shift]))
 
-
-
-    while ():
-        s_temp = framesize - (packet_level_data[shift])*(packet_level_timestamp[shift]-timeLeft)/(packet_level_timestamp[shift]-packet_level_timestamp[shift-1])
-        # print(s_temp)
-        if (s_temp<=0):
-            t_cost = (framesize/(packet_level_data[shift])) * (packet_level_timestamp[shift] - packet_level_timestamp[shift-1] )
-            t_out = max(packet_level_timestamp[shift-1],runningTime) +  t_cost
-            # print("t_cost: "  +str(t_cost))
-            # print(shift)
-            # print(str(t_out) + " ---  " + str(packet_level_timestamp[shift]) )
-            assert t_out <= packet_level_timestamp[shift]
-            return [t_out]
-        framesize = s_temp
-        timeLeft = packet_level_timestamp[shift]
-        shift = shift +1
+    return maxData
