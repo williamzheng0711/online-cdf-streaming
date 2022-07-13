@@ -24,7 +24,7 @@ FPS = 60
 whichVideo = 8
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3100 
+howLongIsVideoInSeconds = 3050 
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -64,6 +64,10 @@ for suffixNum in range(whichVideo,whichVideo+1):
 
 pEpsilon = 0.05
 M = 100
+
+
+
+
 
 def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
     
@@ -108,6 +112,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     consecutive_skip_box = []
 
     countFrame = 0
+
+    true = []
+    suggested = []
+    estimated = []
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
@@ -179,12 +187,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             else:
                 lookbackwardHistogramS = []
             
+            
             if (len(lookbackwardHistogramS)>0):
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
                 need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
                 need_index_plus1 = (need_index + 1)
                 decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
                 suggestedFrameSize = quantile(decision_list, pEpsilon)
+                count_Cond_AlgoTimes += 1
+                cumPartSize += suggestedFrameSize
 
                 if ( runningTime > cut_off_time):
                     maxData = utils.calMaxData(prevTime=runningTime, 
@@ -194,14 +205,20 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
                     # print("maxData is: " + str(maxData))
 
-                    pyplot.hist(decision_list, bins=60)
-                    pyplot.axvline(x= maxData, color="red")
-                    pyplot.axvline(x=mean(decision_list), color="gold")
-                    pyplot.axvline(x=suggestedFrameSize, color="green")
-                    pyplot.legend(["Max. throughput s.t. No Drop",
-                                 "(Unbiased) Estimated", 
-                                 "Suggested (Aka. chosen)"])
-                    pyplot.show()
+                    # true.append(1)
+                    estimated.append( (mean(decision_list) - maxData)/maxData )
+
+                    # pyplot.hist(decision_list, bins=M)
+                    # pyplot.axvline(x= maxData, color="red")
+                    # pyplot.axvline(x=mean(decision_list), color="gold")
+                    # pyplot.axvline(x=suggestedFrameSize, color="green")
+                    # pyplot.legend(["Max. throughput s.t. No Drop",
+                    #              "(Unbiased) Estimated", 
+                    #              "Suggested (Aka. chosen)"])
+                    # pyplot.ylabel("number of occurrences in the past")
+                    # pyplot.xlabel("size (in Mb)")
+                    # pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
+                    # pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0):
                 switch_to_AM = True
@@ -240,6 +257,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         #                 suggestedFrameSize = (1/FPS) * C_i_hat_AM
         #             except:
         #                 suggestedFrameSize = (1/FPS) * mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ])
+
 
         if ( (estimatingType == "A.M." or switch_to_AM == True ) and len(throughputHistoryLog) > 0 ):
             adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
@@ -328,6 +346,12 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     if (len(consecutive_skip_box)>0):
         print(str(mean(consecutive_skip_box)) + " " +str(max(consecutive_skip_box))   )
+
+
+
+    # pyplot.plot(true)
+    pyplot.plot(estimated)
+    pyplot.show()
 
     return [videoCumsize, [], count_skip, minimal_framesize, dummyDataSize, countFrame]
 
