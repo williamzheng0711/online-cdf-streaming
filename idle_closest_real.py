@@ -14,17 +14,17 @@ import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
-from numpy import block, cumsum, quantile
+from numpy import block, cumsum, quantile, var
 
 network_trace_dir = './dataset/fyp_lab/'
 howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 8
+whichVideo = 13
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3050 
+howLongIsVideoInSeconds = 3200
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -63,7 +63,7 @@ for suffixNum in range(whichVideo,whichVideo+1):
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 100
+M = 200
 
 
 
@@ -113,9 +113,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     countFrame = 0
 
-    true = []
-    suggested = []
-    estimated = []
+
+    residual = []
+
+    effectCount = 0
+    failCount = 0
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
@@ -129,7 +131,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             if (runningTime >= cut_off_time):
                 print("Now is time: " + str(runningTime) + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) )
             count_Cond_AlgoTimes = 0
-            count_Marg_AlgoTimes = 0
             cumPartSize = 0
 
         ########################################################################################
@@ -206,7 +207,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     # print("maxData is: " + str(maxData))
 
                     # true.append(1)
-                    estimated.append( (mean(decision_list) - maxData)/maxData )
+                    residual.append( (mean(decision_list) - maxData)/timeSlot )
+                    effectCount += 1
+                    if (suggestedFrameSize > maxData):
+                        failCount += 1
 
                     # pyplot.hist(decision_list, bins=M)
                     # pyplot.axvline(x= maxData, color="red")
@@ -350,7 +354,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
     # pyplot.plot(true)
-    pyplot.plot(estimated)
+
+    print("Fail rate among effective ones: "+ str(failCount/effectCount))
+    print("Mean of residual: " + str(mean(residual)) + " Variance of residual: "+ str(var(residual)))
+    pyplot.plot(residual)
+    pyplot.xlabel("frame No.")
+    pyplot.ylabel("Residual of true throughput and estimated throughput")
+    pyplot.title("Estimated - true value throughput")
     pyplot.show()
 
     return [videoCumsize, [], count_skip, minimal_framesize, dummyDataSize, countFrame]
