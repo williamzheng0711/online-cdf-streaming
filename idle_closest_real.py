@@ -21,10 +21,10 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 13
+whichVideo = 8
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3200
+howLongIsVideoInSeconds = 3050
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -57,8 +57,8 @@ for suffixNum in range(whichVideo,whichVideo+1):
             count = count  +1 
 
 # Just have a quick idea of the mean throughput
-# throughputEstimateInit = sum(networkEnvPacket[1971888:1971888+10000]) / (networkEnvTime[1971888+10000-1]-networkEnvTime[1971888-1])
-# print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
+throughputEstimateInit = sum(networkEnvPacket[0:1+10000]) / (networkEnvTime[1+10000-1]-networkEnvTime[1-1])
+print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 
 # Mean calculation done.
 
