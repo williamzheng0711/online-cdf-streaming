@@ -373,3 +373,7 @@ def calMaxData(prevTime, laterTime, packet_level_timestamp, packet_level_data):
     # print(sum(packet_level_data[shift1:shift]))
 
     return maxData
+
+
+def my5PercentQuantile(a, axis):
+    return np.quantile(a=a, q=0.05, axis=axis)

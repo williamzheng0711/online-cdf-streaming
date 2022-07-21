@@ -15,6 +15,7 @@ from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
 from numpy import block, cumsum, quantile, var
+from scipy.stats import bootstrap
 
 network_trace_dir = './dataset/fyp_lab/'
 howmany_Bs_IN_1Mb = 1024*1024/8
@@ -224,21 +225,29 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     # true.append(1)
                     residual.append( (mean(decision_list) - maxData)/timeSlot )
                     effectCount += 1
+
+                    # denoised_quantile = bootstrap((decision_list,), utils.my5PercentQuantile, axis=-1, n_resamples=50)
+
                     if (suggestedFrameSize > maxData):
                         countExceed += 1
                         failCount += 1
 
-                    # pyplot.hist(decision_list, bins=M)
-                    # pyplot.axvline(x= maxData, color="red")
-                    # pyplot.axvline(x=mean(decision_list), color="gold")
-                    # pyplot.axvline(x=suggestedFrameSize, color="green")
-                    # pyplot.legend(["Max. throughput s.t. No Drop",
-                    #              "(Unbiased) Estimated", 
-                    #              "Suggested (Aka. chosen)"])
-                    # pyplot.ylabel("number of occurrences in the past")
-                    # pyplot.xlabel("size (in Mb)")
-                    # pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
-                    # pyplot.show()
+                    pyplot.hist(decision_list, bins=M)
+                    
+                    pyplot.axvline(x= maxData, color="red")
+                    pyplot.axvline(x=mean(decision_list), color="gold")
+                    pyplot.axvline(x=suggestedFrameSize, color="green")
+                    # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
+                    pyplot.legend(["Max. throughput s.t. No Drop",
+                                 "(Unbiased) Estimated", 
+                                 "Suggested (Aka. chosen)", 
+                                #  "Bootstrap value"
+                                 
+                                 ])
+                    pyplot.ylabel("number of occurrences in the past")
+                    pyplot.xlabel("size (in Mb)")
+                    pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
+                    pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0):
                 switch_to_AM = True
