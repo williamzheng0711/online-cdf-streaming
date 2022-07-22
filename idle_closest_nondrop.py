@@ -22,7 +22,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 15
+whichVideo = 8
 
 # Testing Set Size
 howLongIsVideoInSeconds = 3100
@@ -64,7 +64,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 100
+M = 75
 
 
 
@@ -232,22 +232,22 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                         countExceed += 1
                         failCount += 1
 
-                    pyplot.hist(decision_list, bins=M)
+                    # pyplot.hist(decision_list, bins=M)
                     
-                    pyplot.axvline(x= maxData, color="red")
-                    pyplot.axvline(x=mean(decision_list), color="gold")
-                    pyplot.axvline(x=suggestedFrameSize, color="green")
-                    # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
-                    pyplot.legend(["Max. throughput s.t. No Drop",
-                                 "(Unbiased) Estimated", 
-                                 "Suggested (Aka. chosen)", 
-                                #  "Bootstrap value"
+                    # pyplot.axvline(x= maxData, color="red")
+                    # pyplot.axvline(x=mean(decision_list), color="gold")
+                    # pyplot.axvline(x=suggestedFrameSize, color="green")
+                    # # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
+                    # pyplot.legend(["Max. throughput s.t. No Drop",
+                    #              "(Unbiased) Estimated", 
+                    #              "Suggested (Aka. chosen)", 
+                    #             #  "Bootstrap value"
                                  
-                                 ])
-                    pyplot.ylabel("number of occurrences in the past")
-                    pyplot.xlabel("size (in Mb)")
-                    pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
-                    pyplot.show()
+                    #              ])
+                    # pyplot.ylabel("number of occurrences in the past")
+                    # pyplot.xlabel("size (in Mb)")
+                    # pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
+                    # pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0):
                 switch_to_AM = True
