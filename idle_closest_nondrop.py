@@ -22,7 +22,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 8
+whichVideo = 15
 
 # Testing Set Size
 howLongIsVideoInSeconds = 3100
@@ -135,7 +135,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             estimatingType == "ProbabilityPredict"):
                 if (runningTime >= cut_off_time and singleFrame % 100 ==0):
                     print("Frame: " + str(singleFrame ) +" .Now is time: " + str(runningTime) 
-                        # + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) 
+                        + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) 
                         + "  Exceed counts: " + str(countExceed) + " exceed ratio: " + str(countExceed/100) + " effect count: " + str(effectCount) 
                     )
                     countExceeds.append(countExceed/100)
