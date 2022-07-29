@@ -22,10 +22,10 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 13
+whichVideo = 15
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3100
+howLongIsVideoInSeconds = 3050
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -64,8 +64,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 100
-controlled_epsilon = pEpsilon
+# M = 25
 
 
 
@@ -208,19 +207,16 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             if (len(lookbackwardHistogramS)>0):
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
-                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
-                need_index_plus1 = (need_index + 1)
-                decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
+                decision_list= [
+                    lookbackwardHistogramS[i+1] 
+                    for _, i in zip(lookbackwardHistogramS,range( len(lookbackwardHistogramS) )) 
+                        if ( (  abs( lookbackwardHistogramS[i] / Shat_iMinus1 - 1 )<= 0.01 ) and  i< len(lookbackwardHistogramS) -1 ) ]
+                
+                if effectCount > 100 and (failCount/effectCount) < 0.045:
+                    controlled_epsilon = 0.07
+                else: 
+                    controlled_epsilon = 0.05
 
-                
-                if effectCount > 100:
-                    controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
-                else:
-                    controlled_epsilon = pEpsilon
-                
-                controlled_epsilon = min(controlled_epsilon, 0.07)
-                controlled_epsilon = max(controlled_epsilon, 0.03)
-                
                 suggestedFrameSize = quantile(decision_list, controlled_epsilon)
                 count_Cond_AlgoTimes += 1
                 cumPartSize += suggestedFrameSize
@@ -476,7 +472,7 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
         count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
         Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/ConditionalProposed_MFS_Dummy[-1])
         Cond_Bitrate_Dummy_MFS[idx][idxMFS]= (ConditionalProposed_MFS_Dummy[0]/(howLongIsVideoInSeconds-cut_off_time))
-        print("Cond'l Proposed Method (dummysize=" + str(dummySize*1024/8) + "KB). Bitrate: " + str(Cond_Bitrate_Dummy_MFS[idx][idxMFS]) + 
+        print("Cond'l Proposed Method (dummysize=" + str(dummySize*1024/8) + "KB). Bitrate: " + str(ConditionalProposed_MFS_Dummy[0]/(howLongIsVideoInSeconds-cut_off_time)) + 
             " (Mbps). Loss rate: " + str(count_skip_conditional_MFS_dummy/ConditionalProposed_MFS_Dummy[-1]) )
 
 
