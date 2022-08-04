@@ -7,15 +7,11 @@
 # Largest M means when doing the conditioning step, I only preserve the closet M
 # And this provides the real throughput in the assigned time
 
-from ctypes import util
-from math import floor
-from time import time
 import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
-from numpy import block, cumsum, quantile, var
-from scipy.stats import bootstrap
+from numpy import  quantile, var
 
 network_trace_dir = './dataset/fyp_lab/'
 howmany_Bs_IN_1Mb = 1024*1024/8
@@ -64,7 +60,8 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 100
+M = 25
+
 controlled_epsilon = pEpsilon
 
 
