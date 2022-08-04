@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 13
+whichVideo = 8
 
 # Testing Set Size
 howLongIsVideoInSeconds = 3100
@@ -60,7 +60,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 25
+M = 15
 
 controlled_epsilon = pEpsilon
 
