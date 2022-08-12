@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 15
+whichVideo = 8
 
 # Testing Set Size
 howLongIsVideoInSeconds = 3100
@@ -60,7 +60,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 15
+M = 0
 
 controlled_epsilon = pEpsilon
 
@@ -204,11 +204,14 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             
             if (len(lookbackwardHistogramS)>0):
-                Shat_iMinus1 = lookbackwardHistogramS[-1]
-                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
-                need_index_plus1 = (need_index + 1)
-                decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
+                # conditional
+                # Shat_iMinus1 = lookbackwardHistogramS[-1]
+                # need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
+                # need_index_plus1 = (need_index + 1)
+                # decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
 
+                # marginal
+                decision_list = lookbackwardHistogramS
                 
                 if effectCount > 100:
                     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
@@ -240,7 +243,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                         countExceed += 1
                         failCount += 1
 
-                    # pyplot.hist(decision_list, bins=M)
+                    # pyplot.hist(decision_list, bins=100)
                     
                     # pyplot.axvline(x= maxData, color="red")
                     # pyplot.axvline(x=mean(decision_list), color="gold")
