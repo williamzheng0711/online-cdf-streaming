@@ -313,11 +313,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         # print("It's frame No." + str(singleFrame) + ". And the time cost is" + str(uploadDuration) + ". And size is " +str(thisFrameSize) + "Mb")
 
 
-        # countLoop = 0
+        countLoop = 0
         # Send dummy frame if necessary
         if (sendDummyFrame == True):   
             while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
-                # countLoop += 1
+                countLoop += 1
                 # print(singleFrame)     
                 thisFrameSize =  dummyDataSize
                 uploadFinishTime = utils.paper_frame_upload_finish_time( 
@@ -345,7 +345,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 else:
                     transmitHistoryTimeCum.append(uploadDuration)
         
-        # print(countLoop)
+        if (countLoop!=0):
+            print("countLoop = " + str(countLoop))
         sendDummyFrame == False
 
     if (len(consecutive_skip_box)>0):

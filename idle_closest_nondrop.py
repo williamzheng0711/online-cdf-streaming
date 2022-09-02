@@ -7,6 +7,7 @@
 # Largest M means when doing the conditioning step, I only preserve the closet M
 # And this provides the real throughput in the assigned time
 
+from multiprocessing.resource_sharer import stop
 import numpy as np
 from numpy.core.fromnumeric import mean
 import utils as utils
@@ -21,7 +22,7 @@ FPS = 60
 whichVideo = 8
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3100
+howLongIsVideoInSeconds = 3020
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -53,14 +54,24 @@ for suffixNum in range(whichVideo,whichVideo+1):
                 networkEnvPacket[-1] += float(parse[1]) / howmany_Bs_IN_1Mb 
             count = count  +1 
 
+
+
+
 # Just have a quick idea of the mean throughput
 throughputEstimateInit = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1]-networkEnvTime[0])
+
+print("len of networkEnvPacket=" + str(len(networkEnvPacket)))
+
+pyplot.plot(networkEnvPacket[0:10000])
+pyplot.show()
+
+
 print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 0
+M = 1000
 
 controlled_epsilon = pEpsilon
 
@@ -122,6 +133,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
+
+        if singleFrame % 100 ==0:
+            print("singleFrame=" + str(singleFrame)  + "   and runningTime is: " + str(runningTime) )
 
         if (runningTime >= cut_off_time):
             now_go_real = True
@@ -204,22 +218,27 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             
             if (len(lookbackwardHistogramS)>0):
+                # pyplot.hist(lookbackwardHistogramS, bins=20)
+                # pyplot.show()
+
                 # conditional
-                # Shat_iMinus1 = lookbackwardHistogramS[-1]
-                # need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
-                # need_index_plus1 = (need_index + 1)
-                # decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
+                Shat_iMinus1 = lookbackwardHistogramS[-1]
+                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
+                need_index_plus1 = (need_index + 1)
+                decision_list = [lookbackwardHistogramS[a][0] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
 
                 # marginal
-                decision_list = lookbackwardHistogramS
+                # decision_list = lookbackwardHistogramS
                 
-                if effectCount > 100:
-                    controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
-                else:
-                    controlled_epsilon = pEpsilon
+
+                # P controller?
+                # if effectCount > 100:
+                #     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
+                # else:
+                #     controlled_epsilon = pEpsilon
                 
-                controlled_epsilon = min(controlled_epsilon, 0.07)
-                controlled_epsilon = max(controlled_epsilon, 0.03)
+                # controlled_epsilon = min(controlled_epsilon, 0.07)
+                # controlled_epsilon = max(controlled_epsilon, 0.03)
                 
                 suggestedFrameSize = quantile(decision_list, controlled_epsilon)
                 count_Cond_AlgoTimes += 1
@@ -243,7 +262,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                         countExceed += 1
                         failCount += 1
 
-                    # pyplot.hist(decision_list, bins=100)
+                    # print(decision_list)
+                    # pyplot.hist(decision_list, bins=50)
                     
                     # pyplot.axvline(x= maxData, color="red")
                     # pyplot.axvline(x=mean(decision_list), color="gold")
@@ -431,7 +451,7 @@ Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
 minFrameSizes = np.linspace(a_small_minimal_framesize, 0.8 , num=3)
-dummySizes = np.linspace(0.01*1000/1024, 0.1*1000/1024, num=2)
+dummySizes = np.linspace(0.00001*1000/1024, 0.1*1000/1024, num=2)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
