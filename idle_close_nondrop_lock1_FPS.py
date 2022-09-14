@@ -18,10 +18,10 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 8
+whichVideo = 13
 
 # Testing Set Size
-howLongIsVideoInSeconds = 3020
+howLongIsVideoInSeconds = 3100
 
 networkEnvTime = [] 
 networkEnvPacket= [] 
@@ -86,7 +86,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 # Mean calculation done.
 
 pEpsilon = 0.05
-M = 750
+M = 700
 
 controlled_epsilon = pEpsilon
 
@@ -97,7 +97,6 @@ controlled_epsilon = pEpsilon
 def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
     
     frame_prepared_time = []
-
     throughputHistoryLog = []
     transmitHistoryTimeLog = []
     transmitHistoryTimeCum = []
@@ -143,8 +142,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     # Note that the frame_prepared_time every time is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
 
-        if singleFrame % 100 ==0:
-            print("singleFrame=" + str(singleFrame)  + "   and runningTime is: " + str(runningTime) )
+        # if singleFrame % 100 ==0:
+        #     print("singleFrame=" + str(singleFrame)  + "   and runningTime is: " + str(runningTime) )
 
         if (runningTime >= cut_off_time):
             if (frame_prepared_time[singleFrame] < cut_off_time ):
@@ -174,7 +173,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             break 
 
 
-        # Need to wait for a new frame
+        # Need to wait for a new frame (we wait by send dummy)
         if (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
             # Then we need to wait until singleframe is generated and available to send.
             if (sendingDummyData == False):
@@ -212,8 +211,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 else:
                     transmitHistoryTimeCum.append(uploadDuration)
         
-        if (countLoop!=0):
-            print("countLoop = " + str(countLoop))
+        # if (countLoop!=0):
+        #     print("countLoop = " + str(countLoop))
         sendDummyFrame == False
 
         
@@ -259,13 +258,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 
 
                 # P controller?
-                # if effectCount > 100:
-                #     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
-                # else:
-                #     controlled_epsilon = pEpsilon
+                if effectCount > 100:
+                    controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
+                else:
+                    controlled_epsilon = pEpsilon
                 
-                # controlled_epsilon = min(controlled_epsilon, 0.07)
-                # controlled_epsilon = max(controlled_epsilon, 0.03)
+                controlled_epsilon = min(controlled_epsilon, 0.07)
+                controlled_epsilon = max(controlled_epsilon, 0.03)
                 
                 suggestedFrameSize = quantile(decision_list, controlled_epsilon)
                 count_Cond_AlgoTimes += 1
@@ -283,12 +282,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     residual.append( (mean(decision_list) - maxData)/timeSlot )
                     effectCount += 1
 
-                    if (suggestedFrameSize > maxData):
-                        countExceed += 1
-                        failCount += 1
+                    # if (suggestedFrameSize > maxData):
+                    #     countExceed += 1
+                    #     failCount += 1
 
-                    # pyplot.hist(decision_list, bins=50)
-                    
+                    # pyplot.hist(decision_list, bins=70)
                     # pyplot.axvline(x= maxData, color="red")
                     # pyplot.axvline(x=mean(decision_list), color="gold")
                     # pyplot.axvline(x=suggestedFrameSize, color="green")
@@ -337,14 +335,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         uploadDuration = uploadFinishTime - runningTime
         runningTime = runningTime + uploadDuration 
 
-                # Encounter with frame dropping!!!
+        # Encounter with frame dropping!!!
         if (uploadDuration >= 1/FPS):
             # print("Some frame skipped!")
             if (now_go_real):
                 count_skip = count_skip + 1
                 # print("xxxxxx")
                 consecutive_skip += 1
-
+                countExceed += 1
+                failCount += 1
 
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
@@ -408,7 +407,7 @@ Cond_Lossrate_MFS = []
 Cond_Bitrate_MFS = []
 
 minFrameSizes = np.linspace(a_small_minimal_framesize, 0.8 , num=3)
-dummySizes = np.linspace(0.01*1000/1024, 0.1*1000/1024, num=2)
+dummySizes = np.linspace(0.005*1000/1024, 0.1*1000/1024, num=2)
 # dummySizes = [ 0.05*1000/1024 ]
 Cond_Lossrate_Dummy_MFS = [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
 Cond_Bitrate_Dummy_MFS =  [ [0] * len(minFrameSizes)  for _ in range(len(dummySizes))]
