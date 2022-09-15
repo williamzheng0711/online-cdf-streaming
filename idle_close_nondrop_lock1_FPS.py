@@ -18,7 +18,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8
 
 
 FPS = 60
-whichVideo = 13
+whichVideo = 15
 
 # Testing Set Size
 howLongIsVideoInSeconds = 3100
@@ -258,28 +258,29 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 
 
                 # P controller?
-                if effectCount > 100:
-                    controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
-                else:
-                    controlled_epsilon = pEpsilon
+                # if effectCount > 100:
+                #     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
+                # else:
+                #     controlled_epsilon = pEpsilon
                 
-                controlled_epsilon = min(controlled_epsilon, 0.07)
-                controlled_epsilon = max(controlled_epsilon, 0.03)
+                # controlled_epsilon = min(controlled_epsilon, 0.09)
+                # controlled_epsilon = max(controlled_epsilon, 0.01)
                 
                 suggestedFrameSize = quantile(decision_list, controlled_epsilon)
                 count_Cond_AlgoTimes += 1
                 cumPartSize += suggestedFrameSize
 
                 if ( runningTime > cut_off_time):
-                    maxData = utils.calMaxData(prevTime=runningTime, 
-                                        laterTime=runningTime+timeSlot, 
-                                        packet_level_timestamp= networkEnvTime,
-                                        packet_level_data= networkEnvPacket,)
+                    # maxData = utils.calMaxData(prevTime=runningTime, 
+                    #                     laterTime=runningTime+timeSlot, 
+                    #                     packet_level_timestamp= networkEnvTime,
+                    #                     packet_level_data= networkEnvPacket,)
 
+                    # suggestedFrameSize = maxData * 0.999
                     # print("maxData is: " + str(maxData))
 
                     # true.append(1)
-                    residual.append( (mean(decision_list) - maxData)/timeSlot )
+                    # residual.append( (mean(decision_list) - maxData)/timeSlot )
                     effectCount += 1
 
                     # if (suggestedFrameSize > maxData):
@@ -336,7 +337,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         runningTime = runningTime + uploadDuration 
 
         # Encounter with frame dropping!!!
-        if (uploadDuration >= 1/FPS):
+        if (uploadDuration > 1/FPS):
             # print("Some frame skipped!")
             if (now_go_real):
                 count_skip = count_skip + 1
@@ -368,12 +369,13 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     # pyplot.plot(true)
     print("effectCount is: " + str(effectCount) + " failCount: " + str(failCount) )
     print("Fail rate among effective ones: "+ str(failCount/effectCount))
-    print("Mean of residual: " + str(mean(residual)) + " Variance of residual: "+ str(var(residual)))
-    pyplot.plot(residual)
-    pyplot.xlabel("frame No.")
-    pyplot.ylabel("Residual of true throughput and estimated throughput")
-    pyplot.title("Estimated - true value throughput")
-    pyplot.show()
+
+    # print("Mean of residual: " + str(mean(residual)) + " Variance of residual: "+ str(var(residual)))
+    # pyplot.plot(residual)
+    # pyplot.xlabel("frame No.")
+    # pyplot.ylabel("Residual of true throughput and estimated throughput")
+    # pyplot.title("Estimated - true value throughput")
+    # pyplot.show()
 
 
     per100lr = countExceeds[1:]
