@@ -4,7 +4,7 @@ import matplotlib.pyplot as pyplot
 
 
 estimated_values = []
-Ms = np.arange(start=10, stop=50000, step=10)
+Ms = np.arange(start=10, stop=10000, step=10)
 
 
 for M in Ms:
