@@ -304,7 +304,7 @@ def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot)
     else:
         # Note that [l:u+1] actually sums up l up to u (inclusively). 
         toReturn = sum(pastSizes[l:u+1]) - (t_res_u/pastDurations[u])*pastSizes[u] - (t_res_l/pastDurations[l])*pastSizes[l]
-    # print("l="+str(l) + " u="+str(u) + "    toReturn: " + str(toReturn))
+    print("l="+str(l) + " u="+str(u) + "    toReturn: " + str(toReturn))
 
     return toReturn
 

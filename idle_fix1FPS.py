@@ -14,216 +14,145 @@ import matplotlib.pyplot as pyplot
 from numpy import  quantile, var
 
 
-network_trace_dir = './dataset/fyp_lab/'
-howmany_Bs_IN_1Mb = 1024*1024/8
-FPS = 60
-whichVideo = 15
+# The following are GLOBAL variables
+howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
+FPS = 60                         # frame per second
+whichVideo = 15                  # No. of trace data we perfrom a simulation on
+cut_off_time = 3000              # from here, start measuring
+howLongIsVideoInSeconds = 3010   # terminate simulation at such time
+pEpsilon = 0.05
+controlled_epsilon = pEpsilon
+M = 700
 
-cut_off_time = 3000
-# Testing Set Size
-howLongIsVideoInSeconds = 3100
-
-count = 0
-initialTime = 0
-networkEnvTime = [] 
-networkEnvPacket= [] 
-packet_level_integral_C_training = []
-packet_level_time_training = []
 
 
 assert cut_off_time < howLongIsVideoInSeconds
 
-# In case that there are multiple packets in trace data having same timestamps, we merge them
-for suffixNum in range(whichVideo,whichVideo+1):
-    with open( network_trace_dir+ str(suffixNum) + ".txt" ) as traceDateFile:
-        for eachLine in traceDateFile:
-            parse = eachLine.split()
+# Zhang Yuming Showing: "In case that there are multiple packets in trace data having same timestamps, we merge them."
+traceDir = './dataset/fyp_lab/'
+count = 0
+initialTime = 0
+networkEnvTime = [] 
+networkEnvPacket= [] 
+for sufNum in range(whichVideo, whichVideo+1):
+    with open( traceDir + str(sufNum) + ".txt" ) as traceDataFile:
+        for line in traceDataFile:
+            parse = line.split()
             if (count==0):
                 initialTime = float(parse[0])
-            nowFileTime = float(parse[0]) 
-            if (len(networkEnvTime)>0 and nowFileTime - initialTime != networkEnvTime[-1]):
-                networkEnvTime.append(nowFileTime - initialTime)
+            fileTime = float(parse[0]) 
+            if (len(networkEnvTime)>0 and fileTime - initialTime != networkEnvTime[-1]): # common cases
+                networkEnvTime.append(fileTime - initialTime)
                 networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1Mb ) 
             elif (len(networkEnvTime)==0):
-                networkEnvTime.append(nowFileTime - initialTime)
+                networkEnvTime.append(fileTime - initialTime)
                 networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1Mb ) 
-            else:
+            else: # deal with packets with the same timestamp
                 networkEnvPacket[-1] += float(parse[1]) / howmany_Bs_IN_1Mb 
             count = count  +1 
 
-
-# for suffixNum in range(whichVideo,whichVideo+1):
-#     with open( network_trace_dir+ str(suffixNum) + ".txt" ) as traceDateFile:
-#         for eachLine in traceDateFile:
-#             parse = eachLine.split()
-#             if (count==0):
-#                 initialTime = (count+1) * 0.01
-#             nowFileTime = float(parse[0]) 
-#             if (len(networkEnvTime)>0 and nowFileTime - initialTime != networkEnvTime[-1]):
-#                 networkEnvTime.append((count+1) * 0.01 - initialTime)
-#                 networkEnvPacket.append( max(np.random.normal(1.5, 0.05, 1), 0.000000000001) ) 
-#             elif (len(networkEnvTime)==0):
-#                 networkEnvTime.append((count+1) * 0.01 - initialTime)
-#                 networkEnvPacket.append(max(np.random.normal(1.5, 0.05, 1), 0.000000000001)) 
-#             else:
-#                 networkEnvPacket[-1] += max(np.random.normal( 1.5, 0.05, 1), 0.000000000001)
-#             count = count  +1 
-
-
-# Just have a quick idea of the mean throughput
-throughputEstimateInit = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1]-networkEnvTime[0])
-
-print("len of networkEnvPacket=" + str(len(networkEnvPacket)))
-
-# pyplot.plot(networkEnvPacket[0:10000])
-# pyplot.show()
-
-
+throughputEstimateInit = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1]-networkEnvTime[0]) # Just have a quick glance of the mean throughput
 print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 
-# Mean calculation done.
-
-pEpsilon = 0.05
-M = 700
-
-controlled_epsilon = pEpsilon
 
 
-
-
-
-def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, dummyDataSize):
+def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, subDummySize):
     
-    frame_prepared_time = []
-    throughputHistoryLog = []
-    transmitHistoryTimeLog = []
-    transmitHistoryTimeCum = []
-    realVideoFrameSize = []
-
-    # This is to SKIP the training part of the data.
-    # Hence ensures that training data is not over-lapping with testing data
-    # Mock up the frame generating times
+    frame_prepared_times = []       
     tempTimeTrack = 0
-    runningTime = 0
     for _ in range( howLongIsVideoInSeconds * FPS ):
-        frame_prepared_time.append(tempTimeTrack)
         tempTimeTrack = tempTimeTrack + 1/FPS
+        frame_prepared_times.append(tempTimeTrack) 
     
-    uploadDuration = 0
+    # variables that would be re-initialized every 100 frames
+    count_Cond_AlgoTimes = 0        # Integer. A counter cannot exceed 100, because we see statistics every 100 frames
+    countExceed = 0                 # Integer. No. of exceeds in the this 100 frames
+    cumPartSize = 0                 # Float, calculating cummulative video (non dummy) size for this 100 frames.
 
-    count_skip = 0
-
-    sendDummyFrame = False
-
-    thisFrameSize = 0
-
-    videoCumsize = 0
-
-    now_go_real = False
-
-    count_Cond_AlgoTimes = 0
-    countExceed = 0
-    countExceeds = []
-    cumPartSize = 0
-
-    consecutive_skip = 0
-    consecutive_skip_box = []
-
-    countFrame = 0
+    # variables that would get updated for all simulation
+    runningTime = 0                 # "runningTime" is the simulation clock
+    uploadDuration = 0              # transmission time for ANY thing (dummy or non-dummy)
+    sendDummyFrame = False          # Boolean deciding whether to send dummy between any two frames 
+    videoCumsize = 0                # Float restores cummulative video (not dummy) frame sizes AFTER cut_off_time
+    now_go_real = False             # Boolean of whether simulation clock >= cut_off_time 
+    effectCount = 0                 # Integer. Counts how many times our algorithm is applied on
+    failCount = 0                   # Integer. Counting how many exceed during the whole simulation
+    frameCntAfterCutoff = 0         # Integer. Counting how many frames after cut_off_time
+    throughputHistoryLog = []       # Float array. Storing the avg. throughputs of every transmission (dummy and non-dummy)
+    realVideoFrameSize = []         # Float array. Storing sizes of every transmission (dummy and non-dummy)
+    transmitHistoryTimeLog = []     # Float array. Storing every transmission time (dummy and non-dummy)
+    transmitHistoryTimeCum = []     # Float array. CumSum of "transmitHistoryTimeLog"
+    exceedsRatios = []              # Float array. The i-th element is the loss ratio about the [100*i : 100*(i+1)]-th frames after cut-off time
 
 
-    residual = []
 
-    effectCount = 0
-    failCount = 0
-
-    # Note that the frame_prepared_time every time is NON-SKIPPABLE
+    # Each elements in "frame_prepared_times" is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
 
-        # if singleFrame % 100 ==0:
-        #     print("singleFrame=" + str(singleFrame)  + "   and runningTime is: " + str(runningTime) )
-
-        if (runningTime >= cut_off_time):
-            if (frame_prepared_time[singleFrame] < cut_off_time ):
+        if (runningTime >= cut_off_time): # We want to know if we reached cut_off_time
+            if (frame_prepared_times[singleFrame] < cut_off_time ):
                 continue
-            # print("frame_prepared_time[send 0] = " + str(frame_prepared_time[singleFrame]))
-            now_go_real = True
-            countFrame += 1
-            # print("now running Time= " + str(runningTime))
+            now_go_real = True # Switch on this variable
+            frameCntAfterCutoff += 1
+        
+        if (estimatingType == "ProbabilityPredict"):  
+            if (now_go_real and singleFrame % 100 ==0):
+                print("Frame: " + str(singleFrame) +" .Now is time: " + str(runningTime) 
+                    + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) 
+                    + "  Exceed counts: " + str(countExceed) + " exceed ratio: " + str(countExceed/100) + " effect count: " + str(effectCount)  )
+                exceedsRatios.append(countExceed/100)
+                count_Cond_AlgoTimes = 0; cumPartSize = 0; countExceed = 0
 
-        # totalNumberList[  min(floor(runningTime), len(totalNumberList)-1 ) ] += 1
-        if ( 
-            # singleFrame % (5 * FPS) == 0 and 
-            estimatingType == "ProbabilityPredict"):
-                if (now_go_real and singleFrame % 100 ==0):
-                    print("Frame: " + str(singleFrame ) +" .Now is time: " + str(runningTime) 
-                        + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) 
-                        + "  Exceed counts: " + str(countExceed) + " exceed ratio: " + str(countExceed/100) + " effect count: " + str(effectCount) 
-                    )
-                    countExceeds.append(countExceed/100)
-                    count_Cond_AlgoTimes = 0
-                    cumPartSize = 0
-                    countExceed = 0
+
+        if (runningTime > howLongIsVideoInSeconds): break    # now end the simulation as has reached the terminal
+
 
         ########################################################################################
-
-        if (runningTime > howLongIsVideoInSeconds):
-            break 
-
+        # Transmission of Dummy Part Starts Here. 
 
         # Need to wait for a new frame (we wait by send dummy)
-        if (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
-            # Then we need to wait until singleframe is generated and available to send.
-            if (sendingDummyData == False):
-                # if does not need to send dummy, then wait until frame is ready without doing anything
-                runningTime = frame_prepared_time[singleFrame]
+        if (singleFrame >0 and  runningTime < frame_prepared_times[singleFrame]):  # wait until singleframe is available to transmit.
+            if (sendingDummyData == False): # Don't need to send dummy. Just wait until frame is ready.
+                runningTime = frame_prepared_times[singleFrame]
             elif (sendingDummyData == True):
                 sendDummyFrame = True
 
+        cntSubDummy = 0
+        if (sendDummyFrame == True):  
+            while (runningTime<frame_prepared_times[singleFrame] and singleFrame>0):
+                cntSubDummy += 1 # count how many dummys in this row
+                uploadFinishTime = utils.paper_frame_upload_finish_time(runningTime = runningTime,  # returns the finish time of transmitting this dummy
+                                                                        packet_level_data = networkEnvPacket, 
+                                                                        packet_level_timestamp = networkEnvTime,
+                                                                        framesize = subDummySize,)[0] 
+                if (uploadFinishTime <= howLongIsVideoInSeconds): realVideoFrameSize.append(subDummySize)
 
-        countLoop = 0
-        # Send dummy frame if necessary
-        if (sendDummyFrame == True):   
-            while (singleFrame >0 and  runningTime < frame_prepared_time[singleFrame]):
-                countLoop += 1
-                thisFrameSize =  dummyDataSize
-                uploadFinishTime = utils.paper_frame_upload_finish_time( 
-                                        runningTime= runningTime,
-                                        packet_level_data= networkEnvPacket,
-                                        packet_level_timestamp= networkEnvTime,
-                                        framesize= thisFrameSize)[0]
-                # We record the sent frames' information in this array.
-                if (uploadFinishTime<=howLongIsVideoInSeconds):
-                    realVideoFrameSize.append(thisFrameSize)
+                # update simulation clock
+                uploadDuration = uploadFinishTime - runningTime; runningTime = uploadFinishTime 
+                throughputMeasure =  subDummySize / uploadDuration
+                
+                # update the size logs
+                throughputHistoryLog.append(throughputMeasure); transmitHistoryTimeLog.append(uploadDuration)
 
-                uploadDuration = uploadFinishTime - runningTime
-                runningTime = runningTime + uploadDuration 
-                # print(str(singleFrame)+ "  uploadDuration: " +str(uploadDuration))
-
-                throughputMeasure =  thisFrameSize / uploadDuration
-                throughputHistoryLog.append(throughputMeasure)
-                transmitHistoryTimeLog.append(uploadDuration)
-
+                # update the time logs
                 if (len(transmitHistoryTimeCum)>0):
                     transmitHistoryTimeCum.append(transmitHistoryTimeCum[-1]+uploadDuration)
                 else:
                     transmitHistoryTimeCum.append(uploadDuration)
-        
-        # if (countLoop!=0):
-        #     print("countLoop = " + str(countLoop))
+            # reach the out of while loop. Aka, we reached the time to send a non-dummy frame.
         sendDummyFrame == False
 
-        
+        # Transmission of Dummy Part Ends Here. 
         #######################################################################################
-        suggestedFrameSize = -np.Infinity
 
-        if (consecutive_skip >=1):
-            consecutive_skip_box.append(consecutive_skip)
-        consecutive_skip = 0
 
-        T_i = 1/FPS
+        ########################################################################################
+        # Determination of "thisFrameSize" of Non-dummy Frame Part Starts Here. 
 
-        switch_to_AM = False
+        suggestedFrameSize = -np.Infinity 
+
+        T_i = 1/FPS # time allocation for transmission of a frame
+        switch_to_AM = False 
 
         if (estimatingType == "ProbabilityPredict"):
             backLen = FPS * 300
@@ -235,27 +164,19 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                                             pastDurationsCum= transmitHistoryTimeCum,
                                             pastSizes= realVideoFrameSize, 
                                             backLen= backLen,
-                                            timeSlot= timeSlot
-                                        )
+                                            timeSlot= timeSlot, )
 
-            else:
-                lookbackwardHistogramS = []
+            else: lookbackwardHistogramS = []
             
             
             if (len(lookbackwardHistogramS)>0):
-                # print("已經用了")
-                # conditional
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
                 need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
                 need_index = np.array(need_index)
                 need_index_plus1 = need_index + 1
                 decision_list = [lookbackwardHistogramS[a] for a in need_index_plus1 if a < len(lookbackwardHistogramS)]
-
-                # marginal
-                # decision_list = lookbackwardHistogramS
                 
-
-                # P controller?
+                # whether to use P controller?
                 # if effectCount > 100:
                 #     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
                 # else:
@@ -281,10 +202,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     # residual.append( (mean(decision_list) - maxData)/timeSlot )
                     effectCount += 1
 
-                    # if (suggestedFrameSize > maxData):
-                    #     countExceed += 1
-                    #     failCount += 1
-
                     # pyplot.hist(decision_list, bins=70)
                     # pyplot.axvline(x= maxData, color="red")
                     # pyplot.axvline(x=mean(decision_list), color="gold")
@@ -300,49 +217,37 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     # pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
                     # pyplot.show()
 
-            elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0):
+            elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
+                # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
                 switch_to_AM = True
 
-
-        if ( (estimatingType == "A.M." or switch_to_AM == True ) and len(throughputHistoryLog) > 0 ):
+        if ((estimatingType == "A.M." or switch_to_AM == True) and len(throughputHistoryLog) > 0):
             adjustedAM_Nume = sum(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)])
             adjustedAM_Deno = [ a/b for a,b in zip(realVideoFrameSize[ max(0,len(realVideoFrameSize)-pTrackUsed,): len(realVideoFrameSize)], 
                                         throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog)]) ]
-            C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno)
+            C_i_hat_AM = adjustedAM_Nume/sum(adjustedAM_Deno) # C denotes throughput, aka, size/time
             suggestedFrameSize = (1/FPS) * C_i_hat_AM
 
         elif (estimatingType == "MinimalFrame"):
             suggestedFrameSize = minimal_framesize
 
-
-        # Above is case-wise, now it is general to transmit a (video) frame
-        thisFrameSize =  max ( suggestedFrameSize, minimal_framesize )
+        thisFrameSize =  max ( suggestedFrameSize, minimal_framesize ) # above is case-wise, now it is general to transmit a (video) frame
     
-        # Until now, the suggestedFrameSize is fixed.
+        # Determination of "thisFrameSize" of Non-dummy Frame Part Ends Here. 
         #######################################################################################
-        uploadFinishTime = utils.paper_frame_upload_finish_time( 
-                                runningTime= runningTime,
-                                packet_level_data= networkEnvPacket,
-                                packet_level_timestamp= networkEnvTime,
-                                framesize= thisFrameSize)[0]
 
 
-        # We record the sent frames' information in this array.
-        # if (uploadFinishTime<=howLongIsVideoInSeconds):
+        ########################################################################################
+        # Transmission of the Non-dummy Frame (whose size is determined above) Starts Here. 
+        uploadFinishTime = utils.paper_frame_upload_finish_time(runningTime= runningTime, packet_level_data= networkEnvPacket,
+                                                                packet_level_timestamp= networkEnvTime, framesize= thisFrameSize)[0]
         realVideoFrameSize.append(thisFrameSize)
+        uploadDuration = uploadFinishTime - runningTime; runningTime = uploadFinishTime
 
-        uploadDuration = uploadFinishTime - runningTime
-        runningTime = runningTime + uploadDuration 
-
-        # Encounter with frame dropping!!!
-        if (uploadDuration > 1/FPS):
-            # print("Some frame skipped!")
+        if (uploadDuration > 1/FPS):    # encounter with frame dropping
             if (now_go_real):
-                count_skip = count_skip + 1
-                # print("xxxxxx")
-                consecutive_skip += 1
-                countExceed += 1
-                failCount += 1
+                countExceed += 1            # countExceed retores the No. of skips in the 100 frames
+                failCount   += 1            # failCount restores the whole No. of skips starting from cut_off_time
 
         throughputMeasure =  thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
@@ -354,29 +259,16 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         
         if (now_go_real):
             videoCumsize += thisFrameSize
+        # Transmission of the Non-dummy Frame (whose size is determined above) Ends Here.
+        ########################################################################################
 
-        # print("It's frame No." + str(singleFrame) + ". And the time cost is" + str(uploadDuration) + ". And size is " +str(thisFrameSize) + "Mb")
+        # will go to next "singleFrame"
 
-
-
-    if (len(consecutive_skip_box)>0):
-        print(str(mean(consecutive_skip_box)) + " " +str(max(consecutive_skip_box))   )
-
-
-
-    # pyplot.plot(true)
+    # Up till now, all "singleFrame" are processed. Following are some statistics and reports.
     print("effectCount is: " + str(effectCount) + " failCount: " + str(failCount) )
     print("Fail rate among effective ones: "+ str(failCount/effectCount))
 
-    # print("Mean of residual: " + str(mean(residual)) + " Variance of residual: "+ str(var(residual)))
-    # pyplot.plot(residual)
-    # pyplot.xlabel("frame No.")
-    # pyplot.ylabel("Residual of true throughput and estimated throughput")
-    # pyplot.title("Estimated - true value throughput")
-    # pyplot.show()
-
-
-    per100lr = countExceeds[1:]
+    per100lr = exceedsRatios[1:]
     print("Mean of per100lr: " + str( mean(per100lr) ) + ", variance of per100lr: " + str(var(per100lr)))
     pyplot.plot(per100lr, color="blue")
     pyplot.xlabel("100 frames per slot")
@@ -385,7 +277,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     pyplot.legend(["real loss rate", "target 0.05"])
     pyplot.show()
 
-    return [videoCumsize, [], count_skip, minimal_framesize, dummyDataSize, countFrame]
+    return [videoCumsize, [], failCount , minimal_framesize, subDummySize, frameCntAfterCutoff]
 
 
 
@@ -441,13 +333,12 @@ for thisMFS, idxMFS in zip(minFrameSizes, range(len(minFrameSizes))):
 
 
     for dummySize, idx in zip(dummySizes,range(len(dummySizes))):
-        ConditionalProposed_MFS_Dummy = uploadProcess(
-                            minimal_framesize= thisMFS, 
-                            estimatingType = "ProbabilityPredict", 
-                            pTrackUsed=5, 
-                            pBufferTime = some_initial_buffer,
-                            sendingDummyData= True, 
-                            dummyDataSize= dummySize)
+        ConditionalProposed_MFS_Dummy=uploadProcess(minimal_framesize= thisMFS, 
+                                                    estimatingType = "ProbabilityPredict", 
+                                                    pTrackUsed=5, 
+                                                    pBufferTime = some_initial_buffer,
+                                                    sendingDummyData= True, 
+                                                    subDummySize= dummySize, )
 
         count_skip_conditional_MFS_dummy = ConditionalProposed_MFS_Dummy[2]
         Cond_Lossrate_Dummy_MFS[idx][idxMFS]= (count_skip_conditional_MFS_dummy/ConditionalProposed_MFS_Dummy[-1])
