@@ -17,12 +17,13 @@ from numpy import  quantile, var
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
-whichVideo = 15                  # No. of trace data we perfrom a simulation on
+whichVideo = 13                  # No. of trace data we perfrom a simulation on
 cut_off_time = 1000              # from here, start measuring
 howLongIsVideoInSeconds = 1100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
-M = 100
+M = 200
+backSeconds = 150
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -155,7 +156,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         switch_to_AM = False 
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = FPS * 150
+            backLen = FPS * backSeconds
             timeSlot= T_i
 
             if (runningTime >= cut_off_time):
@@ -170,6 +171,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             
             if (len(lookbackwardHistogramS)>0):
+                effectCount += 1
                 # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
                 need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
@@ -191,8 +193,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 cumPartSize += suggestedFrameSize
 
                 if ( runningTime > cut_off_time and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
-                    effectCount += 1
-
                     maxData = utils.calMaxData(prevTime=runningTime, 
                                         laterTime=runningTime+timeSlot, 
                                         packet_level_timestamp= networkEnvTime,
@@ -271,9 +271,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
         # will go to next "singleFrame"
 
-    # Up till now, all "singleFrame" are processed. Following are some statistics and reports.
-    print("effectCount is: " + str(effectCount) + " failCount: " + str(failCount) )
-    print("Fail rate among effective ones: "+ str(failCount/effectCount))
 
     per100lr = exceedsRatios[1:]
     print("Mean of per100lr: " + str( mean(per100lr) ) + ", variance of per100lr: " + str(var(per100lr)))
