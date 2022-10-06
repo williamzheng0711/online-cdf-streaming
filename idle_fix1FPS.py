@@ -18,11 +18,11 @@ from numpy import  quantile, var
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
 whichVideo = 15                  # No. of trace data we perfrom a simulation on
-cut_off_time = 3000              # from here, start measuring
-howLongIsVideoInSeconds = 3300   # terminate simulation at such time
+cut_off_time = 1000              # from here, start measuring
+howLongIsVideoInSeconds = 1100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
-M = 700
+M = 100
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -125,7 +125,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                                                                         framesize = subDummySize,)[0] 
 
                 # update simulation clock
-                uploadDuration = uploadFinishTime - runningTime; runningTime = uploadFinishTime 
+                uploadDuration = uploadFinishTime - runningTime; 
+                runningTime = uploadFinishTime 
                 throughputMeasure =  subDummySize / uploadDuration
                 
                 # update the size logs
@@ -154,7 +155,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         switch_to_AM = False 
 
         if (estimatingType == "ProbabilityPredict"):
-            backLen = FPS * 300
+            backLen = FPS * 150
             timeSlot= T_i
 
             if (runningTime >= cut_off_time):
@@ -169,6 +170,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             
             if (len(lookbackwardHistogramS)>0):
+                # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
                 Shat_iMinus1 = lookbackwardHistogramS[-1]
                 need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M )
                 need_index = np.array(need_index)
@@ -188,33 +190,37 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 count_Cond_AlgoTimes += 1
                 cumPartSize += suggestedFrameSize
 
-                if ( runningTime > cut_off_time):
-                    # maxData = utils.calMaxData(prevTime=runningTime, 
-                    #                     laterTime=runningTime+timeSlot, 
-                    #                     packet_level_timestamp= networkEnvTime,
-                    #                     packet_level_data= networkEnvPacket,)
+                if ( runningTime > cut_off_time and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
+                    effectCount += 1
+
+                    maxData = utils.calMaxData(prevTime=runningTime, 
+                                        laterTime=runningTime+timeSlot, 
+                                        packet_level_timestamp= networkEnvTime,
+                                        packet_level_data= networkEnvPacket,)
 
                     # suggestedFrameSize = maxData * 0.999
                     # print("maxData is: " + str(maxData))
 
                     # true.append(1)
                     # residual.append( (mean(decision_list) - maxData)/timeSlot )
-                    effectCount += 1
 
-                    # pyplot.hist(decision_list, bins=70)
-                    # pyplot.axvline(x= maxData, color="red")
-                    # pyplot.axvline(x=mean(decision_list), color="gold")
-                    # pyplot.axvline(x=suggestedFrameSize, color="green")
-                    # # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
-                    # pyplot.legend(["Max. throughput s.t. No Drop",
-                    #              "(Unbiased) Estimated", 
-                    #              "Suggested (Aka. chosen)", 
-                    #             #  "Bootstrap value"
-                    #              ])
-                    # pyplot.ylabel("number of occurrences in the past")
-                    # pyplot.xlabel("size (in Mb)")
-                    # pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
-                    # pyplot.show()
+                    pyplot.hist(decision_list, bins=70)
+                    pyplot.axvline(x= maxData, color="red")
+                    pyplot.axvline(x= minimal_framesize, color="black")
+                    pyplot.axvline(x=mean(decision_list), color="gold")
+                    pyplot.axvline(x=suggestedFrameSize, color="green")
+                    # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
+                    pyplot.legend([
+                                 "Max. throughput s.t. No Drop",
+                                 "Minimal frame size",
+                                 "(Unbiased) Estimated", 
+                                 "Suggested (Aka. chosen)", 
+                                #  "Bootstrap value"
+                                 ])
+                    pyplot.ylabel("number of occurrences in the past")
+                    pyplot.xlabel("size (in Mb)")
+                    pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
+                    pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
                 # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
@@ -240,7 +246,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         # Transmission of the Non-dummy Frame (whose size is determined above) Starts Here. 
         uploadFinishTime = utils.paper_frame_upload_finish_time(runningTime= runningTime, packet_level_data= networkEnvPacket,
                                                                 packet_level_timestamp= networkEnvTime, framesize= thisFrameSize)[0]
-        uploadDuration = uploadFinishTime - runningTime; runningTime = uploadFinishTime
+        uploadDuration = uploadFinishTime - runningTime; 
+        runningTime = uploadFinishTime
 
         if (uploadDuration > 1/FPS):    # encounter with frame dropping
             if (now_go_real):
@@ -281,8 +288,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
 
-someMinimalFramesize = 0.00000005
-someSubDummySize     = 0.005*1000/1024
+someMinimalFramesize = 0.0005*1000/1024
+someSubDummySize     = 0.0005*1000/1024
 someInitialBuffer    = 0                 # cannot go with buffer now
 
 ConditionalProposed_MFS_Dummy = uploadProcess(minimal_framesize= someMinimalFramesize, 
