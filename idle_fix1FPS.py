@@ -285,8 +285,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
 
-someMinimalFramesize = 0.0005*1000/1024
-someSubDummySize     = 0.0005*1000/1024
+someMinimalFramesize = 0.00005*1000/1024
+someSubDummySize     = 0.00005*1000/1024
 someInitialBuffer    = 0                 # cannot go with buffer now
 
 ConditionalProposed_MFS_Dummy = uploadProcess(minimal_framesize= someMinimalFramesize, 
