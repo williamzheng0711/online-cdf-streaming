@@ -17,13 +17,13 @@ from numpy import  quantile, var
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
-whichVideo = 17                  # No. of trace data we perfrom a simulation on
-cut_off_time = 1000              # from here, start measuring
-howLongIsVideoInSeconds = 1100   # terminate simulation at such time
+whichVideo = 8                  # No. of trace data we perfrom a simulation on
+cut_off_time = 150              # from here, start measuring
+howLongIsVideoInSeconds = cut_off_time + 100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
-M = 200
-backSeconds = 150
+M = 150
+backSeconds = 60
 
 assert cut_off_time < howLongIsVideoInSeconds
 
@@ -285,8 +285,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 
 
-someMinimalFramesize = 0.00005*1000/1024
-someSubDummySize     = 0.00005*1000/1024
+someMinimalFramesize = 0.005*1000/1024
+someSubDummySize     = 0.005*1000/1024
 someInitialBuffer    = 0                 # cannot go with buffer now
 
 ConditionalProposed_MFS_Dummy = uploadProcess(minimal_framesize= someMinimalFramesize, 
