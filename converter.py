@@ -2,7 +2,7 @@ import csv
 
 network_trace_dir = './dataset/fyp_lab/'
 
-time_inveral = 3
+time_inveral = 0.04
 amount = 0 
 timeTrack = 1615285137.282262000
 
