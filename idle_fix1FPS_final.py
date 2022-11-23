@@ -19,10 +19,10 @@ from numpy import  quantile, var
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
-whichVideo = 17                  # No. of trace data we perfrom a simulation on
+whichVideo = 18                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
-cut_off_time2 = 50                # to accumulate the percentile
-howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 100   # terminate simulation at such time
+cut_off_time2 = 100                # to accumulate the percentile
+howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 200   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
 M = 150
@@ -231,7 +231,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 percentiles.append( np.count_nonzero(decision_list < log_maxData) / len(decision_list) )
                 percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
-                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
+                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS ):
                     pyplot.hist(decision_list, bins=50)
                     pyplot.axvline(x= np.log(maxData), color="red")
                     # pyplot.axvline(x= minimal_framesize, color="black")
