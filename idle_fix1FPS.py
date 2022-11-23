@@ -18,8 +18,8 @@ from numpy import  quantile, var
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
-whichVideo = 17                  # No. of trace data we perfrom a simulation on
-cut_off_time = 200              # from here, start measuring
+whichVideo = 18                  # No. of trace data we perfrom a simulation on
+cut_off_time = 1000              # from here, start measuring
 howLongIsVideoInSeconds = cut_off_time + 100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
@@ -176,18 +176,21 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 # pyplot.show()
                 # plot_acf(x=np.array(lookbackwardHistogramS))
                 # pyplot.show()
-                arg = np.argmax(pacf(np.array(lookbackwardHistogramS))[1:])
+                # pyplot.plot(np.log(np.array(lookbackwardHistogramS)))
+                # pyplot.show()
+                loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
+                arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
                 arg = arg + 1
                 # if arg!=0: 
-                #     plot_pacf(x=lookbackwardHistogramS, lags=15, method="ywm")
-                #     pyplot.show()
+                # plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
+                # pyplot.show()
                 effectCount += 1
                 # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
-                Shat_iMinus1 = lookbackwardHistogramS[-1]
-                need_index = utils.extract_nearest_M_values_index(lookbackwardHistogramS, Shat_iMinus1, M)
+                Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
+                need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, M)
                 need_index = np.array(need_index)
                 need_index_plus_arg = need_index + arg
-                decision_list = [lookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(lookbackwardHistogramS)]
+                decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
                 
                 # whether to use P controller?
                 # if effectCount > 100:
@@ -198,11 +201,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 # controlled_epsilon = min(controlled_epsilon, 0.09)
                 # controlled_epsilon = max(controlled_epsilon, 0.01)
                 
-                suggestedFrameSize = quantile(decision_list, controlled_epsilon, method='median_unbiased')
+                suggestedFrameSize = np.exp(quantile(decision_list, controlled_epsilon, method='median_unbiased'))
                 count_Cond_AlgoTimes += 1
                 cumPartSize += suggestedFrameSize
 
-                if ( runningTime > cut_off_time and singleFrame > howLongIsVideoInSeconds * FPS ):
+                if ( runningTime > cut_off_time and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
                     maxData = utils.calMaxData(prevTime=runningTime, 
                                         laterTime=runningTime+timeSlot, 
                                         packet_level_timestamp= networkEnvTime,
@@ -215,14 +218,14 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                     # residual.append( (mean(decision_list) - maxData)/timeSlot )
 
                     pyplot.hist(decision_list, bins=70)
-                    pyplot.axvline(x= maxData, color="red")
-                    pyplot.axvline(x= minimal_framesize, color="black")
+                    pyplot.axvline(x= np.log(maxData), color="red")
+                    # pyplot.axvline(x= minimal_framesize, color="black")
                     pyplot.axvline(x=mean(decision_list), color="gold")
-                    pyplot.axvline(x=suggestedFrameSize, color="green")
+                    pyplot.axvline(x=np.log(suggestedFrameSize), color="green")
                     # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
                     pyplot.legend([
                                  "Max. throughput s.t. No Drop",
-                                 "Minimal frame size",
+                                #  "Minimal frame size",
                                  "(Unbiased) Estimated", 
                                  "Suggested (Aka. chosen)", 
                                 #  "Bootstrap value"
