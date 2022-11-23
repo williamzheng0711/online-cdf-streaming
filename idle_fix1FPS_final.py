@@ -15,18 +15,20 @@ import matplotlib.pyplot as pyplot
 from numpy import  quantile, var
 
 
+
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 60                         # frame per second
 whichVideo = 18                  # No. of trace data we perfrom a simulation on
-cut_off_time = 1000              # from here, start measuring
-howLongIsVideoInSeconds = cut_off_time + 100   # terminate simulation at such time
+cut_off_time1 = 200              # This time is for accumulate the PDF space
+cut_off_time2 = 50                # to accumulate the percentile
+howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
 M = 150
 backSeconds = 60
 
-assert cut_off_time < howLongIsVideoInSeconds
+assert cut_off_time1 + cut_off_time2 < howLongIsVideoInSeconds
 
 # Zhang Yuming Showing: "In case that there are multiple packets in trace data having same timestamps, we merge them."
 traceDir = './dataset/fyp_lab/'
@@ -84,23 +86,25 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     transmitHistoryTimeCum = []     # Float array. CumSum of "transmitHistoryTimeLog"
     exceedsRatios = []              # Float array. The i-th element is the loss ratio about the [100*i : 100*(i+1)]-th frames after cut-off time
 
+    percentiles = []
 
 
     # Each elements in "frame_prepared_times" is NON-SKIPPABLE
     for singleFrame in range( howLongIsVideoInSeconds * FPS ):
 
-        if (runningTime >= cut_off_time): # We want to know if we reached cut_off_time
-            if (frame_prepared_times[singleFrame] < cut_off_time ):
+        if (runningTime >= cut_off_time1 + cut_off_time2): # We want to know if we reached cut_off_time
+            if (frame_prepared_times[singleFrame] < cut_off_time1 + cut_off_time2 ):
                 continue
             now_go_real = True # Switch on this variable
             frameCntAfterCutoff += 1
         
         if (estimatingType == "ProbabilityPredict"):  
-            if (now_go_real and singleFrame % 100 ==0):
+            if (now_go_real and singleFrame % 100 == 99):
                 print("Frame: " + str(singleFrame) +" .Now is time: " + str(runningTime) 
-                    + "--- Cond (with or w/o dummy) count times: " +str(count_Cond_AlgoTimes) + " ---part Size: " +str(cumPartSize) 
+                    + "--- Cond (with or w/o dummy) ---part Size: " +str(cumPartSize) 
                     + "  Exceed counts: " + str(countExceed) + " exceed ratio: " + str(countExceed/100) + " effect count: " + str(effectCount)  )
                 exceedsRatios.append(countExceed/100)
+                print(controlled_epsilon)
                 count_Cond_AlgoTimes = 0; cumPartSize = 0; countExceed = 0
 
 
@@ -160,7 +164,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             backLen = FPS * backSeconds
             timeSlot= T_i
 
-            if (runningTime >= cut_off_time):
+            if (runningTime >= cut_off_time1):
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                             pastDurations= transmitHistoryTimeLog,
                                             pastDurationsCum= transmitHistoryTimeCum,
@@ -181,17 +185,17 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
                 arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
                 arg = arg + 1
-                if arg != 1: 
-                    plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
-                    pyplot.show()
-                effectCount += 1
+                # if arg != 1: 
+                #     plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
+                #     pyplot.show()
+                if(runningTime >= cut_off_time1 + cut_off_time2): effectCount += 1
                 # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
                 Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
                 need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, M)
                 need_index = np.array(need_index)
                 need_index_plus_arg = need_index + arg
                 decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
-                
+
                 # whether to use P controller?
                 # if effectCount > 100:
                 #     controlled_epsilon = (pEpsilon - failCount/effectCount) * 0.1 + controlled_epsilon
@@ -201,23 +205,34 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 # controlled_epsilon = min(controlled_epsilon, 0.09)
                 # controlled_epsilon = max(controlled_epsilon, 0.01)
                 
+                # pyplot.hist(percentiles, bins=50, cumulative=True, density=True)
+                # pyplot.axline((0, 0), slope=1)
+                # pyplot.show(block=False)
+                # pyplot.pause(0.01)
+
+
+                
+                if (runningTime >= cut_off_time1 + cut_off_time2):
+                    controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
+                    # controlled_epsilon = pEpsilon
+                    # print(controlled_epsilon)
+                else:
+                    controlled_epsilon = pEpsilon
                 suggestedFrameSize = np.exp(quantile(decision_list, controlled_epsilon, method='median_unbiased'))
                 count_Cond_AlgoTimes += 1
-                cumPartSize += suggestedFrameSize
+                if (runningTime >= cut_off_time1 + cut_off_time2): cumPartSize += suggestedFrameSize
 
-                if ( runningTime > cut_off_time and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
-                    maxData = utils.calMaxData(prevTime=runningTime, 
+                maxData = utils.calMaxData(prevTime=runningTime, 
                                         laterTime=runningTime+timeSlot, 
                                         packet_level_timestamp= networkEnvTime,
                                         packet_level_data= networkEnvPacket,)
+                
+                log_maxData = np.log(maxData)
+                percentiles.append( np.count_nonzero(decision_list < log_maxData) / len(decision_list) )
+                percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
-                    # suggestedFrameSize = maxData * 0.999
-                    # print("maxData is: " + str(maxData))
-
-                    # true.append(1)
-                    # residual.append( (mean(decision_list) - maxData)/timeSlot )
-
-                    pyplot.hist(decision_list, bins=70)
+                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS -10 ):
+                    pyplot.hist(decision_list, bins=50)
                     pyplot.axvline(x= np.log(maxData), color="red")
                     # pyplot.axvline(x= minimal_framesize, color="black")
                     pyplot.axvline(x=mean(decision_list), color="gold")
@@ -292,6 +307,10 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     pyplot.ylabel("loss rate of that 100 frames")
     pyplot.axhline(0.05, color="red")
     pyplot.legend(["real loss rate", "target 0.05"])
+    pyplot.show()
+
+    pyplot.hist(percentiles, bins=50, cumulative=True, density=True)
+    pyplot.axline((0, 0), slope=1)
     pyplot.show()
 
     return [videoCumsize, [], failCount , minimal_framesize, subDummySize, frameCntAfterCutoff]
