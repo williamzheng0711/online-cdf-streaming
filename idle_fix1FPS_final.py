@@ -211,8 +211,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 # pyplot.pause(0.01)
                 
                 if (runningTime >= cut_off_time1 + cut_off_time2 and len(percentiles)>=cut_off_time2*FPS):
-                    controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
-                    # controlled_epsilon = pEpsilon
+                    # controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
+                    controlled_epsilon = pEpsilon
                     # print(controlled_epsilon)
                 else:
                     controlled_epsilon = pEpsilon
