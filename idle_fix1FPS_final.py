@@ -25,7 +25,7 @@ cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 100   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
-M = 150
+M = 70
 backSeconds = 60
 
 assert cut_off_time1 + cut_off_time2 < howLongIsVideoInSeconds
@@ -227,7 +227,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 
                 log_maxData = np.log(maxData)
                 percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
-                # percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
+                percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
                 if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS ):
                     pyplot.hist(decision_list, bins=50)
