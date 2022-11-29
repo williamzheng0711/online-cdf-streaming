@@ -13,6 +13,8 @@ from numpy.core.fromnumeric import mean
 import utils as utils
 import matplotlib.pyplot as pyplot
 from numpy import  quantile, var
+from statsmodels.tsa.stattools import acf, pacf
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
 
@@ -176,13 +178,12 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             
             
             if (len(lookbackwardHistogramS)>0):
-                # plot_pacf(x=lookbackwardHistogramS, lags=15, method="ywm")
-                # pyplot.show()
-                # plot_acf(x=np.array(lookbackwardHistogramS))
-                # pyplot.show()
-                # pyplot.plot(np.log(np.array(lookbackwardHistogramS)))
-                # pyplot.show()
+
                 loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
+                plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
+                pyplot.show()
+                # plot_acf(x=np.array(lookbackwardHistogramS), )
+                # pyplot.show()
                 arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
                 arg = arg + 1
                 # if arg != 1: 
@@ -229,15 +230,25 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
                 percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
-                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS ):
+                my_order = (0,1,0)
+                my_seasonal_order = (1, 0, 1, 12)
+                # define model
+                model = SARIMAX(loglookbackwardHistogramS, order=my_order, seasonal_order=my_seasonal_order)
+                model_fit = model.fit()
+                predictions = model_fit.forecast(1)[0]
+                # print(predictions)
+
+                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS or True):
                     pyplot.hist(decision_list, bins=50)
                     pyplot.axvline(x= np.log(maxData), color="red")
+                    pyplot.axvline(x= predictions, color = "black")
                     # pyplot.axvline(x= minimal_framesize, color="black")
                     pyplot.axvline(x=mean(decision_list), color="gold")
                     pyplot.axvline(x=np.log(suggestedFrameSize), color="green")
                     # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
                     pyplot.legend([
                                  "Max. throughput s.t. No Drop",
+                                 "SARIMA prediction",
                                 #  "Minimal frame size",
                                  "(Unbiased) Estimated", 
                                  "Suggested (Aka. chosen)", 
