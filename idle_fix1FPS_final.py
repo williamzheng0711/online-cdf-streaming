@@ -21,7 +21,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 11                  # No. of trace data we perfrom a simulation on
+whichVideo = 12                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 300   # terminate simulation at such time
@@ -180,8 +180,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             if (len(lookbackwardHistogramS)>0):
 
                 loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
-                plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
-                pyplot.show()
+                # plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
+                # pyplot.show()
                 # plot_acf(x=np.array(lookbackwardHistogramS), )
                 # pyplot.show()
                 arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
@@ -212,8 +212,8 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 # pyplot.pause(0.01)
                 
                 if (runningTime >= cut_off_time1 + cut_off_time2 and len(percentiles)>=cut_off_time2*FPS):
-                    # controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
-                    controlled_epsilon = pEpsilon
+                    controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
+                    # controlled_epsilon = pEpsilon
                     # print(controlled_epsilon)
                 else:
                     controlled_epsilon = pEpsilon
@@ -230,34 +230,34 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                 percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
                 percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
-                my_order = (0,1,0)
-                my_seasonal_order = (1, 0, 1, 12)
-                # define model
-                model = SARIMAX(loglookbackwardHistogramS, order=my_order, seasonal_order=my_seasonal_order)
-                model_fit = model.fit()
-                predictions = model_fit.forecast(1)[0]
+                # my_order = (0,1,0)
+                # my_seasonal_order = (1, 0, 1, 12)
+                # # define model
+                # model = SARIMAX(loglookbackwardHistogramS, order=my_order, seasonal_order=my_seasonal_order)
+                # model_fit = model.fit()
+                # predictions = model_fit.forecast(1)[0]
                 # print(predictions)
 
-                if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS or True):
-                    pyplot.hist(decision_list, bins=50)
-                    pyplot.axvline(x= np.log(maxData), color="red")
-                    pyplot.axvline(x= predictions, color = "black")
-                    # pyplot.axvline(x= minimal_framesize, color="black")
-                    pyplot.axvline(x=mean(decision_list), color="gold")
-                    pyplot.axvline(x=np.log(suggestedFrameSize), color="green")
-                    # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
-                    pyplot.legend([
-                                 "Max. throughput s.t. No Drop",
-                                 "SARIMA prediction",
-                                #  "Minimal frame size",
-                                 "(Unbiased) Estimated", 
-                                 "Suggested (Aka. chosen)", 
-                                #  "Bootstrap value"
-                                 ])
-                    pyplot.ylabel("number of occurrences in the past")
-                    pyplot.xlabel("size (in Mb)")
-                    pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
-                    pyplot.show()
+                # if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS or True):
+                #     pyplot.hist(decision_list, bins=50)
+                #     pyplot.axvline(x= np.log(maxData), color="red")
+                #     pyplot.axvline(x= predictions, color = "black")
+                #     # pyplot.axvline(x= minimal_framesize, color="black")
+                #     pyplot.axvline(x=mean(decision_list), color="gold")
+                #     pyplot.axvline(x=np.log(suggestedFrameSize), color="green")
+                #     # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
+                #     pyplot.legend([
+                #                  "Max. throughput s.t. No Drop",
+                #                  "SARIMA prediction",
+                #                 #  "Minimal frame size",
+                #                  "(Unbiased) Estimated", 
+                #                  "Suggested (Aka. chosen)", 
+                #                 #  "Bootstrap value"
+                #                  ])
+                #     pyplot.ylabel("number of occurrences in the past")
+                #     pyplot.xlabel("size (in Mb)")
+                #     pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
+                #     pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
                 # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
@@ -334,5 +334,5 @@ ConditionalProposed_MFS_Dummy = uploadProcess(minimal_framesize= someMinimalFram
                                                     estimatingType = "ProbabilityPredict", 
                                                     pTrackUsed = 100, 
                                                     pBufferTime = someInitialBuffer,
-                                                    sendingDummyData= True, 
+                                                    sendingDummyData= False, 
                                                     subDummySize= someSubDummySize )
