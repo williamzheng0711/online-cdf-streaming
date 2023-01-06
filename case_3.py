@@ -21,7 +21,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 16                  # No. of trace data we perfrom a simulation on
+whichVideo = 17                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 +600   # terminate simulation at such time
@@ -283,6 +283,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
 someMinimalFramesize = 0.005*1000/1024
 someSubDummySize     = 0.005*1000/1024
+# someInitialBuffer    = 0 
 someInitialBuffer    = (1/2)*(1/FPS)                # cannot go with buffer now
 
 statistics = uploadProcess(minimal_framesize= someMinimalFramesize, 
