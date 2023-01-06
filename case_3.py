@@ -21,10 +21,10 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 15                  # No. of trace data we perfrom a simulation on
+whichVideo = 16                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
-howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 + 300   # terminate simulation at such time
+howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 +600   # terminate simulation at such time
 pEpsilon = 0.05
 controlled_epsilon = pEpsilon
 M = 70
@@ -60,7 +60,7 @@ print( str(throughputEstimateInit) + "Mbps, this is mean throughput")
 
 
 
-def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, sendingDummyData, subDummySize):
+def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
     
     frame_prepared_times = []       
     tempTimeTrack = 0
@@ -77,7 +77,6 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     # variables that would get updated for all simulation
     runningTime = 0                 # "runningTime" is the simulation clock
     uploadDuration = 0              # transmission time for ANY thing (dummy or non-dummy)
-    sendDummyFrame = False          # Boolean deciding whether to send dummy between any two frames 
     videoCumsize = 0                # Float restores cummulative video (not dummy) frame sizes AFTER cut_off_time
     now_go_real = False             # Boolean of whether simulation clock >= cut_off_time 
     effectCount = 0                 # Integer. Counts how many times our algorithm is applied on
@@ -88,8 +87,11 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
     transmitHistoryTimeLog = []     # Float array. Storing every transmission time (dummy and non-dummy)
     transmitHistoryTimeCum = []     # Float array. CumSum of "transmitHistoryTimeLog"
     exceedsRatios = []              # Float array. The i-th element is the loss ratio about the [100*i : 100*(i+1)]-th frames after cut-off time
-
+    decision_list = []
     percentiles = []
+    bufferTime = pBufferTime
+
+    startingFrame = -1
 
 
     # Each elements in "frame_prepared_times" is NON-SKIPPABLE
@@ -99,52 +101,59 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
             if (frame_prepared_times[singleFrame] < cut_off_time1 + cut_off_time2 ):
                 continue
             now_go_real = True # Switch on this variable
+            if startingFrame == -1:
+                startingFrame = singleFrame
             frameCntAfterCutoff += 1
         
         if (estimatingType == "ProbabilityPredict"):  
             if (now_go_real and singleFrame % 100 == 99):
                 if (localNoneffectCount!=100):
-                    print("Frame: " + str(singleFrame) +" .Now is time: " + str(runningTime) 
+                    print("Frame: " + str(singleFrame) + " .Now is time: " + str(runningTime) 
                         + "  Exceed counts: " + str(countExceed) + " exceed ratio: " + str(countExceed/(100-localNoneffectCount)) + " effect count: " + str(effectCount) 
-                        + " local Noneffect counts: " + str(localNoneffectCount) )
+                        # + "  local Noneffect counts: " + str(localNoneffectCount) 
+                        + "  Controlled epsilon: " + str(controlled_epsilon)) 
                     exceedsRatios.append(countExceed/(100-localNoneffectCount))
+                    
                 else: 
                     print("localNoneffectCount == 100, something strange happens")
                     exceedsRatios.append(-1)
-                print("Controled_epsilon=" + str(controlled_epsilon))
-                count_Cond_AlgoTimes = 0; cumPartSize = 0; 
-                countExceed = 0; localNoneffectCount = 0
+                
+                count_Cond_AlgoTimes = 0; 
+                cumPartSize = 0; 
+                countExceed = 0; 
+                localNoneffectCount = 0
 
-        if (runningTime > howLongIsVideoInSeconds): break    # now end the simulation as has reached the terminal
+        if (runningTime > howLongIsVideoInSeconds): 
+            break    # now end the simulation as has reached the terminal
 
         if (singleFrame >0 and ( runningTime < frame_prepared_times[singleFrame])): 
             runningTime = frame_prepared_times[singleFrame]
         
-        if runningTime > frame_prepared_times[singleFrame] + 1/FPS:
+        if runningTime > frame_prepared_times[singleFrame] + 2/FPS + bufferTime:
             if now_go_real:
-                failCount   += 1            # failCount restores the whole No. of skips starting from cut_off_time
+                print("有點問題")
+                failCount += 1            # failCount restores the whole No. of skips starting from cut_off_time
                 localNoneffectCount += 1
-            continue
-
-
-        # ########################################################################################
-        # # Transmission of Dummy Part Starts Here. 
-
-        # # Transmission of Dummy Part Ends Here. 
-        # #######################################################################################
-
+                bufferTime = max(pBufferTime-max(runningTime-frame_prepared_times[singleFrame],0),0) 
+                continue
+            else:
+                continue
 
         ########################################################################################
         # Determination of "thisFrameSize" of Non-dummy Frame Part Starts Here. 
-
         suggestedFrameSize = -np.Infinity 
 
-        T_i = 2/FPS + frame_prepared_times[singleFrame] - runningTime # time allocation for transmission of a frame
+        T_i = max(2/FPS + frame_prepared_times[singleFrame] - runningTime, 0) # time allocation for transmission of a frame
         switch_to_AM = False 
 
         if (estimatingType == "ProbabilityPredict"):
+            if now_go_real: 
+                assert runningTime <= frame_prepared_times[singleFrame] + 2/FPS + bufferTime
+                # print(frame_prepared_times[singleFrame] + 2/FPS + pBufferTime)
+                # print("---frame No." + str(singleFrame)+" start. genTime: "+str(frame_prepared_times[singleFrame])+" Now time is: "+str(runningTime)+" Now buffer: " + str(bufferTime))
             backLen = FPS * backSeconds
-            timeSlot= T_i
+            # timeSlot= T_i + bufferTime
+            timeSlot = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - runningTime
 
             if (sum(transmitHistoryTimeLog) >= cut_off_time1):
                 lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
@@ -156,19 +165,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
             else: lookbackwardHistogramS = []
             
-            
             if (len(lookbackwardHistogramS)>0):
 
                 loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
-                # plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
-                # pyplot.show()
-                # plot_acf(x=np.array(lookbackwardHistogramS), )
-                # pyplot.show()
-                arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
+
+                arg = 0
+                try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
+                except:     arg = 0                    
                 arg = arg + 1
-                # if arg != 1: 
-                #     plot_pacf(x=loglookbackwardHistogramS, lags=15, method="ywm")
-                #     pyplot.show()
+
                 if now_go_real: effectCount += 1
                 # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
                 Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
@@ -179,10 +184,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
                 if (now_go_real and len(percentiles)>=cut_off_time2*FPS):
                     controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
-                    # controlled_epsilon = pEpsilon
-                    # print(controlled_epsilon)
                 else:
                     controlled_epsilon = pEpsilon
+
                 suggestedFrameSize = np.exp(quantile(decision_list, controlled_epsilon, method='median_unbiased'))
                 count_Cond_AlgoTimes += 1
                 if (now_go_real): cumPartSize += suggestedFrameSize
@@ -191,39 +195,9 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
                                         laterTime=runningTime+timeSlot, 
                                         packet_level_timestamp= networkEnvTime,
                                         packet_level_data= networkEnvPacket,)
-                
-                log_maxData = np.log(maxData)
+                log_maxData = np.log(maxData)       
                 percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
                 percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
-
-                # my_order = (0,1,0)
-                # my_seasonal_order = (1, 0, 1, 12)
-                # # define model
-                # model = SARIMAX(loglookbackwardHistogramS, order=my_order, seasonal_order=my_seasonal_order)
-                # model_fit = model.fit()
-                # predictions = model_fit.forecast(1)[0]
-                # print(predictions)
-
-                # if ( runningTime > cut_off_time1 + cut_off_time2 and singleFrame > howLongIsVideoInSeconds * FPS or True):
-                #     pyplot.hist(decision_list, bins=50)
-                #     pyplot.axvline(x= np.log(maxData), color="red")
-                #     pyplot.axvline(x= predictions, color = "black")
-                #     # pyplot.axvline(x= minimal_framesize, color="black")
-                #     pyplot.axvline(x=mean(decision_list), color="gold")
-                #     pyplot.axvline(x=np.log(suggestedFrameSize), color="green")
-                #     # pyplot.axvline(x = mean(denoised_quantile.confidence_interval), color="violet")
-                #     pyplot.legend([
-                #                  "Max. throughput s.t. No Drop",
-                #                  "SARIMA prediction",
-                #                 #  "Minimal frame size",
-                #                  "(Unbiased) Estimated", 
-                #                  "Suggested (Aka. chosen)", 
-                #                 #  "Bootstrap value"
-                #                  ])
-                #     pyplot.ylabel("number of occurrences in the past")
-                #     pyplot.xlabel("size (in Mb)")
-                #     pyplot.title("Estimating distribution of frame No." + str(singleFrame) + "'s size")
-                #     pyplot.show()
 
             elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
                 # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
@@ -250,15 +224,27 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         uploadFinishTime = utils.paper_frame_upload_finish_time(runningTime= runningTime, packet_level_data= networkEnvPacket,
                                                                 packet_level_timestamp= networkEnvTime, framesize= thisFrameSize)[0]
         uploadDuration = uploadFinishTime - runningTime; 
+
+        countSize = True
+        oldRunningTime = runningTime
         runningTime = uploadFinishTime
+        bufferTime = max(pBufferTime-max(runningTime-frame_prepared_times[singleFrame ],0), 0)  
 
-        # print("frame No." + str(singleFrame) + " now time is:"  + str(runningTime)+" it took " + str(uploadDuration) + " T_i=" + str(T_i))
-
-        if (uploadFinishTime > frame_prepared_times[singleFrame] + 2/FPS):    # encounter with frame dropping
+        if (uploadFinishTime > frame_prepared_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame dropping
             if (now_go_real):
+                # print("要改時間了")
+                countSize = False
                 countExceed += 1            # countExceed retores the No. of skips in the 100 frames
+                uploadDuration = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
+                runningTime = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime
+                bufferTime = 0
+                thisFrameSize = utils.calMaxData(prevTime=oldRunningTime, 
+                                    laterTime=runningTime, 
+                                    packet_level_timestamp= networkEnvTime,
+                                    packet_level_data= networkEnvPacket,)
 
-        throughputMeasure =  thisFrameSize / uploadDuration
+
+        throughputMeasure = thisFrameSize / uploadDuration
         throughputHistoryLog.append(throughputMeasure)
         transmitHistoryTimeLog.append(uploadDuration)
         realVideoFrameSize.append(thisFrameSize)
@@ -268,19 +254,21 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         else:
             transmitHistoryTimeCum.append(uploadDuration)
         
-        if (now_go_real):
+        if (now_go_real and countSize):
             videoCumsize += thisFrameSize
+            # print("   frame No." + str(singleFrame)+" done." + " Now time is: "+str(runningTime)+" Now buffer: " + str(bufferTime))
+
         # Transmission of the Non-dummy Frame (whose size is determined above) Ends Here.
         ########################################################################################
 
         # will go to next "singleFrame"
 
-
     per100lr = exceedsRatios[1:]
-    print("Mean of per100lr: " + str( mean(per100lr) ) + ", variance of per100lr: " + str(var(per100lr)))
+    print( "Mean throughput in Mbps: " + str( videoCumsize/((singleFrame - startingFrame)/FPS) ) )
+    print( "Mean of per100lr: " + str( mean(per100lr) ) + ", variance of per100lr: " + str(var(per100lr)))
     pyplot.plot(per100lr, color="blue")
     pyplot.xlabel("100 frames per slot")
-    pyplot.ylabel("loss rate of that 100 frames")
+    pyplot.ylabel("loss rate of that 100 frames")   
     pyplot.axhline(0.05, color="red")
     pyplot.legend(["real loss rate", "target 0.05"])
     pyplot.show()
@@ -295,16 +283,14 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
 
 someMinimalFramesize = 0.005*1000/1024
 someSubDummySize     = 0.005*1000/1024
-someInitialBuffer    = 0                 # cannot go with buffer now
+someInitialBuffer    = (1/2)*(1/FPS)                # cannot go with buffer now
 
 statistics = uploadProcess(minimal_framesize= someMinimalFramesize, 
                                                     estimatingType = "ProbabilityPredict", 
                                                     pTrackUsed = 100, 
-                                                    pBufferTime = someInitialBuffer,
-                                                    sendingDummyData= False, 
-                                                    subDummySize= someSubDummySize )
+                                                    pBufferTime = someInitialBuffer)
 
 failCount = statistics[1]
 TotalTrials = statistics[3]
 
-print("Overall loss rate=" + str(failCount/TotalTrials))
+# print("Overall loss rate=" + str(failCount/TotalTrials))

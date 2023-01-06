@@ -120,7 +120,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime, s
         if (singleFrame >0 and ( runningTime < frame_prepared_times[singleFrame])): 
             runningTime = frame_prepared_times[singleFrame]
         
-        if runningTime > frame_prepared_times[singleFrame] + 1/FPS:
+        if runningTime > frame_prepared_times[singleFrame] + 2/FPS:
             if now_go_real:
                 failCount   += 1            # failCount restores the whole No. of skips starting from cut_off_time
                 localNoneffectCount += 1
