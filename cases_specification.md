@@ -11,3 +11,6 @@ Case 2 denotes that the sender sends frames, but every frames' transmission peri
 For some frame, if its successor used up more time, it will suffer with a shorter legit transmission interval. 
 
 The sender always transmits the newest possible frame. 
+
+# Case 3
+Case 3, we introduced buffer (prefetch)
