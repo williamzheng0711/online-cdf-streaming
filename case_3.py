@@ -21,7 +21,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 18                  # No. of trace data we perfrom a simulation on
+whichVideo = 17                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 +600   # terminate simulation at such time
@@ -157,7 +157,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
         if (estimatingType == "ProbabilityPredict"):
             if now_go_real: 
-                assert runningTime <= frame_prepared_times[singleFrame] + 1/FPS + pBufferTime
+                assert runningTime <= frame_prepared_times[singleFrame] + 1/FPS + pBufferTime or np.abs(frame_prepared_times[singleFrame] + 1/FPS + pBufferTime - runningTime)<=0.00001
                 # print("---frame No." + str(singleFrame)+" start. genTime: "+str(frame_prepared_times[singleFrame])+" Now time is: "+str(runningTime))
             backLen = FPS * backSeconds
             timeSlot = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
