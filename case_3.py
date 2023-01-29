@@ -21,7 +21,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 18                  # No. of trace data we perfrom a simulation on
+whichVideo = 15                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 +600   # terminate simulation at such time
@@ -88,6 +88,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
     exceedsRatios = []              # Float array. The i-th element is the loss ratio about the [100*i : 100*(i+1)]-th frames after cut-off time
     decision_list = []
     percentiles = []
+    delays = []
     # bufferTime = pBufferTime
 
     startingFrame = -1
@@ -241,7 +242,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         runningTime = uploadFinishTime
         # bufferTime = max(pBufferTime-max(runningTime-frame_prepared_times[singleFrame ],0), 0)  
 
-        if (uploadFinishTime > frame_prepared_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame dropping
+        if (uploadFinishTime > frame_prepared_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame defective
             if (now_go_real):
                 # print("要改時間了")
                 countSize = False
@@ -267,6 +268,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         
         if (now_go_real and countSize):
             videoCumsize += thisFrameSize
+            delays.append( runningTime - singleFrame*(1/FPS)) # playback time (transmission finish time) - capture time
 
         # Transmission of the Non-dummy Frame (whose size is determined above) Ends Here.
         ########################################################################################
@@ -274,8 +276,23 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         # will go to next "singleFrame"
 
     per100lr = exceedsRatios[1:]
+    maxThroughputAll =  utils.calMaxData(prevTime=startingFrame*(1/FPS), 
+                                    laterTime=singleFrame*(1/FPS), 
+                                    packet_level_timestamp= networkEnvTime,
+                                    packet_level_data= networkEnvPacket,)
+
     print( "Mean throughput in Mbps: " + str( videoCumsize/((singleFrame - startingFrame)/FPS) ) )
+    print( "Max throughput in Mbps: " + str( maxThroughputAll/((singleFrame - startingFrame)/FPS)  ))
     print( "Mean of per100lr: " + str( mean(per100lr) ) + ", variance of per100lr: " + str(var(per100lr)))
+    print( "Average delay time (about non-defective): " + str( mean(delays) ) + " seconds" )
+    
+    pyplot.title("Dataset " + str(whichVideo))
+    pyplot.plot(delays, color="blue")
+    pyplot.axhline(pBufferTime, color="red")
+    pyplot.legend(["real delay", "maxBuffer"])
+    pyplot.show()
+
+    pyplot.title("Dataset " + str(whichVideo))
     pyplot.plot(per100lr, color="blue")
     pyplot.xlabel("100 frames per slot")
     pyplot.ylabel("loss rate of that 100 frames")   
@@ -292,7 +309,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 
 
 someMinimalFramesize = 0.005*1000/1024
-someSubDummySize     = 0.005*1000/1024
+# someSubDummySize     = 0.005*1000/1024
 # someInitialBuffer    = 0 
 someInitialBuffer    = (5)*(1/FPS)                # cannot go with buffer now
 
@@ -300,9 +317,3 @@ statistics = uploadProcess(minimal_framesize= someMinimalFramesize,
                                                     estimatingType = "ProbabilityPredict", 
                                                     pTrackUsed = 100, 
                                                     pBufferTime = someInitialBuffer)
-
-failCount = statistics[1]
-TotalTrials = statistics[3]
-
-print("Fail count= " + str(failCount))
-print("Overall loss rate=" + str(failCount/TotalTrials))
