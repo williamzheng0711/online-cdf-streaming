@@ -191,7 +191,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                 decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
 
                 if (now_go_real and len(percentiles)>=cut_off_time2*FPS):
-                    controlled_epsilon = np.quantile(percentiles, pEpsilon, method="median_unbiased")
+                    controlled_epsilon = np.quantile(percentiles[:len(percentiles)-2], pEpsilon, method="median_unbiased")
                 else:
                     controlled_epsilon = pEpsilon
 
@@ -311,7 +311,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
 someMinimalFramesize = 0.005*1000/1024
 # someSubDummySize     = 0.005*1000/1024
 # someInitialBuffer    = 0 
-someInitialBuffer    = (5)*(1/FPS)                # cannot go with buffer now
+someInitialBuffer    = (3)*(1/FPS)                # cannot go with buffer now
 
 statistics = uploadProcess(minimal_framesize= someMinimalFramesize, 
                                                     estimatingType = "ProbabilityPredict", 
