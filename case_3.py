@@ -191,7 +191,7 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                 decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
 
                 if (now_go_real and len(percentiles)>=cut_off_time2*FPS):
-                    controlled_epsilon = np.quantile(percentiles[:len(percentiles)-2], pEpsilon, method="median_unbiased")
+                    controlled_epsilon = np.quantile(percentiles[:len(percentiles)-10], pEpsilon, method="median_unbiased")
                 else:
                     controlled_epsilon = pEpsilon
 
