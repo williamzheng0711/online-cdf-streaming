@@ -259,36 +259,6 @@ def paper_frame_upload_finish_time( runningTime, packet_level_data, packet_level
         
 
 
-    # while (framesize > 0): 
-    #     if (i == 0):
-    #         i = 1
-    #         s_temp = framesize - packet_level_data[shift]
-    #         if (s_temp<=0):
-    #             t_cost = (framesize/packet_level_data[shift]) * (packet_level_timestamp[shift] - packet_level_timestamp[shift-1] )
-    #             t_out = packet_level_timestamp[shift] +  t_cost
-    #             return [t_out]
-    #         framesize = s_temp
-    #     else: 
-    #         s_temp = framesize - packet_level_data[shift]
-    #         if (s_temp<=0): 
-    #             t_out = packet_level_timestamp[shift]
-    #             return [t_out]
-    #         framesize = s_temp
-    #     shift = shift +1
-
-
-
-
-
-
-# need to be checked!!!!!
-# pastDurations= transmitHistoryTimeLog,
-# pastDurationsCum= transmitHistoryTimeCum,
-# pastSizes= realVideoFrameSize, 
-# backLen= backLen, usually set as 1000 or 3000
-# timeSlot= min(T_i + timeBuffer/2, 1/FPS )
-# intNumOfSlots is 0, 1, 2...
-
 def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot):
     toReturn = 0
     timeSlotEnd = pastDurationsCum[-1] - intNumOfSlots * timeSlot
@@ -311,11 +281,7 @@ def CumSize(intNumOfSlots, pastDurationsCum, pastDurations, pastSizes, timeSlot)
 
 
 
-# pastDurations= transmitHistoryTimeLog,
-# pastDurationsCum= transmitHistoryTimeCum,
-# pastSizes= realVideoFrameSize, 
-# backLen= backLen, usually set as 1000 or 3000 or sth
-# timeSlot= min(T_i + timeBuffer/2, 1/FPS )
+
 def generatingBackwardSizeFromLog_fixLen(pastDurations, pastDurationsCum, pastSizes, backLen, timeSlot):
     pilot = 0
     result = []

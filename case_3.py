@@ -21,7 +21,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 # The following are GLOBAL variables
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-whichVideo = 11                  # No. of trace data we perfrom a simulation on
+whichVideo = 18                  # No. of trace data we perfrom a simulation on
 cut_off_time1 = 200              # This time is for accumulate the PDF space
 cut_off_time2 = 60                # to accumulate the percentile
 howLongIsVideoInSeconds = cut_off_time1 + cut_off_time2 +600   # terminate simulation at such time
@@ -243,17 +243,17 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
         # bufferTime = max(pBufferTime-max(runningTime-frame_prepared_times[singleFrame ],0), 0)  
 
         if (uploadFinishTime > frame_prepared_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame defective
-            if (now_go_real):
-                # print("要改時間了")
-                countSize = False
-                countExceed += 1            # countExceed retores the No. of skips in the 100 frames
-                uploadDuration = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
-                runningTime = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime
-                # bufferTime = 0
-                thisFrameSize = utils.calMaxData(prevTime=oldRunningTime, 
-                                    laterTime=runningTime, 
-                                    packet_level_timestamp= networkEnvTime,
-                                    packet_level_data= networkEnvPacket,)
+            # if (now_go_real):
+            # print("要改時間了")
+            countSize = False
+            countExceed = (countExceed + 1) if now_go_real else countExceed            # countExceed retores the No. of skips in the 100 frames
+            uploadDuration = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
+            runningTime = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime
+            # bufferTime = 0
+            thisFrameSize = utils.calMaxData(prevTime=oldRunningTime, 
+                                laterTime=runningTime, 
+                                packet_level_timestamp= networkEnvTime,
+                                packet_level_data= networkEnvPacket,)
 
 
         throughputMeasure = thisFrameSize / uploadDuration

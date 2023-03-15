@@ -1,309 +1,273 @@
-# Throughput Predicting Attempt
-#     Created by Zheng Weijia (William)
-#     The Chinese University of Hong Kong
-#     Nov. 7, 2021
-
-import csv
-from math import exp, floor, pi, sin, sqrt
-from operator import index, indexOf, ne
 import numpy as np
-from numpy.core.numeric import False_
-from scipy.stats import laplace
-from scipy.stats import laplace_asymmetric
-from scipy.stats.morestats import boxcox_normmax
-from sklearn.preprocessing import MinMaxScaler
-from numpy.core.fromnumeric import argmax, mean, size, var
-from numpy.lib.function_base import append, kaiser
-import utils as utils
-from torch.autograd import Variable
-import torch
-import time as tm
-import pandas as pd
-import os
+import padasip as pa
+import utils
 import matplotlib.pyplot as pyplot
-from statistics import NormalDist
-from numpy import linalg as LA
 
-import ecm_model as ECMModel
+from statsmodels.tsa.stattools import acf, pacf
+from optparse import OptionParser
 
-MILLISECONDS_IN_SECOND = 1000.0
-B_IN_MB = 1000.0*1000.0
-FPS = 4
-# Now the upload session RTT is integrated well.
-# In second， 也就是5毫秒的 RTT
-RTT = 0.00005
 
-networkSamplingInterval = 0.25
+#### Some constants.
+howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
+FPS = 30                         # frame per second
+pBufferTime = 2/FPS
+minimal_framesize = 0.005*1000/1024
+M = 30
 
+
+#### Some user input parameters. 
+parser = OptionParser()
+parser.add_option("--args", type="string", dest="args", help="Arguments", default="")
+parser.add_option("--algo", type="string", dest="algo", help="Which method to run? Choose ONE from 'OnCPD', 'OnRLS'.", default="OnCPD")
+parser.add_option("--epsilon", type="float", dest="epsilon", help="Target frame loss rate (only useful for OnCPD and OnRLS)", default=0.05)
+parser.add_option("--traceData", type="int", dest="traceData", help="Which trace data to simulate with? Input a number between 1 to 18", default=18)
+parser.add_option("--trainTime", type="int", dest="trainTime", help="How long (in seconds) is the training time interval in trace data?", default=200)
+parser.add_option("--testTime", type="int", dest="testTime", help="How long (in seconds) is the testing time interval in trace data?", default=600)
+(options, args) = parser.parse_args()
+algo = options.algo
+assert algo in ["OnCPD", "OnRLS"]
+traceData = options.traceData
+assert traceData in range(19)
+trainTime = options.trainTime                                      # number of active users
+assert trainTime > 100 
+testTime = options.testTime                                      # number of active users
+assert testTime > 0
+epsilon = options.epsilon
+assert epsilon > 0 and epsilon < 1
+
+
+
+### Read in the trace data. 
+traceDir = './dataset/fyp_lab/'
 count = 0
-howLongIsVideo = 10000
+initialTime = 0
+networkEnvTime = [] 
+networkEnvPacket= [] 
+with open(traceDir + str(traceData)+".txt") as traceDataFile:
+    for line in traceDataFile:
+        parse = line.split()
+        if (count==0):
+            initialTime = float(parse[0])
+        fileTime = float(parse[0]) 
+        if (len(networkEnvTime)>0 and fileTime - initialTime != networkEnvTime[-1]): # common cases
+            networkEnvTime.append(fileTime - initialTime)
+            networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1Mb ) 
+        elif (len(networkEnvTime)==0):
+            networkEnvTime.append(fileTime - initialTime)
+            networkEnvPacket.append( float(parse[1]) / howmany_Bs_IN_1Mb ) 
+        else: # deal with packets with the same timestamp
+            networkEnvPacket[-1] += float(parse[1]) / howmany_Bs_IN_1Mb 
+        count = count  +1 
 
-NETWORK_TRACE = "1h_less"
-network_trace_dir = './dataset/network_trace/' + NETWORK_TRACE + '/'
-
-networkEnvTime = []
-networkEnvTP= []
-
-timeDataLoad = 50000
-
-for suffixNum in range(8,9):
-    networkEnvTP = []
-    with open( network_trace_dir+str(suffixNum) + ".csv" ) as file1:
-        for line in file1:
-            count = count  +1 
-            # if (count<400000):
-            parse = line.split()
-            networkEnvTP.append(float(parse[0]) / B_IN_MB ) 
-
-
-startPoint = np.quantile(networkEnvTP, 0.0005)
-endPoint = np.quantile(networkEnvTP, 0.9995)
-MIN_TP = min(networkEnvTP)
-MAX_TP = max(networkEnvTP)
-
-# samplePoints = 200
-samplePoints = 40
-marginalSample = 3
-        
-if (startPoint!=0):
-    binsMe=np.concatenate( (np.linspace( MIN_TP,startPoint, marginalSample, endpoint=False) , 
-                            np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
-                            np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
-                            axis=0)
-else:
-    binsMe = np.concatenate(( np.linspace( startPoint, endPoint, samplePoints, endpoint=False) ,  
-                              np.linspace( endPoint, MAX_TP, marginalSample, endpoint=True)  ), 
-                              axis=0)
-
-# binsMe =  np.linspace( MIN_TP, MAX_TP, samplePoints, endpoint=True) 
+c_hat_init = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1]-networkEnvTime[0]) # Just have a quick calc of the mean throughput
+print( str(c_hat_init) + "Mbps, this is mean throughput")
 
 
-probability  = [ [0] * len(binsMe)  for _ in range(len(binsMe))]
+## Generate frame capture times
+frame_capture_times = []       
+tempTimeTrack = 0
+fullTimeInSec = trainTime + testTime
+for _ in range( fullTimeInSec * FPS ):
+    tempTimeTrack = tempTimeTrack + 1/FPS
+    frame_capture_times.append(tempTimeTrack) 
+
+
+# variables that would be re-initialized every 100 frames
+countExceed = 0                 # Integer. No. of exceeds in the this 100 frames
+
+# variables that would get updated for all simulation
+runningTime = 0                 # Float. The simulation clock, in seconds.
+uploadDuration = 0              # Float. A variable to store the transmission time of frames.
+videoCumsize = 0                # Float. A variable to store sum of all (non-loss) frames' size during the whole testing time period, i.e., after training time.
+now_go_real = False             # Boolean of whether simulation clock >= training time 
+effectCount = 0                 # Integer. Counts how many times our algorithm is applied on
+failCount = 0                   # Integer. Counting how many frames are loss during the whole simulation in testing phase.
+throughputHistoryLog = []       # Float array. Storing the avg. throughputs of every transmission (dummy and non-dummy)
+realVideoFrameSize = []         # Float array. Storing sizes of every transmission (dummy and non-dummy)
+transmitHistoryTimeLog = []     # Float array. Storing every transmission time (dummy and non-dummy)
+transmitHistoryTimeCum = []     # Float array. CumSum of "transmitHistoryTimeLog"
+exceedsRatios = []              # Float array. The i-th element is the loss ratio about the [100*i : 100*(i+1)]-th frames after training time. 
+decision_list = []
+percentiles = []
+delays = []
+errors = []
+tuned_epsilon = epsilon
+startingFrame = -1
+
+filt = pa.filters.FilterRLS(5, mu=0.999)  
+
+### Transmit every frame, until we reach fullTimeInSec
+for singleFrame in range( fullTimeInSec * FPS ):
+    assert runningTime - (frame_capture_times[singleFrame] + 1/FPS + pBufferTime) <= 1e-5
+
+    # We want to know if we've trained for enough time
+    if runningTime >= trainTime:
+        if (frame_capture_times[singleFrame] < trainTime): continue
+        now_go_real = True # Switch this variable on
+        if startingFrame == -1:
+            startingFrame = singleFrame
+    
+    # During testing phase, renew some variables/statistics per 100 frames
+    if singleFrame % 100 == 0:
+        message1 = "Frame: "+str(singleFrame)+". Now is time: "+str(runningTime)
+        if now_go_real:
+            message = message1 + " Exceed counts: " + str(countExceed)
+            if algo == "OnCPD": 
+                print(message+" Tuned epsilon: "+str(tuned_epsilon)) 
+            elif algo == "OnRLS": 
+                print(message) 
+            exceedsRatios.append( countExceed/100 )
+            countExceed = 0 
+        elif now_go_real == False:
+             print(message1)
+
+    # To return an end if has reached the terminus
+    if runningTime > fullTimeInSec: 
+        break
+    
+    # If have spare time, we do nothing but wait for the next event
+    if runningTime < frame_capture_times[singleFrame]: runningTime = frame_capture_times[singleFrame]
 
 
 
-def uploadProcess(user_id, minimal_framesize, estimatingType, probability, forTrain, pTrackUsed, pForgetList):
+    ########################################################################################
+    # Determination of "thisFrameSize" of Non-dummy Frame Part Starts Here. 
+    suggestedFrameSize = -np.Infinity 
+    timeSlot = frame_capture_times[singleFrame] + 2/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
-    # This is the most important part, which containing the T(i)+C(i) part
-    cdn_arrive_time = []
+    if (algo == "OnCPD"):
+        backTime = 60
+        backLen = FPS * backTime
+        if len(transmitHistoryTimeLog) > 0 and algo == "OnCPD":
+            lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
+                                        pastDurations= transmitHistoryTimeLog,
+                                        pastDurationsCum= transmitHistoryTimeCum,
+                                        pastSizes= realVideoFrameSize, 
+                                        backLen= backLen,
+                                        timeSlot= timeSlot, )
 
-    # to store the frame size data
-    frame_prepared_time = []
-    frame_start_send_time = []
+        else: lookbackwardHistogramS = []
 
-    throughputHistoryLog = []
+        if (len(lookbackwardHistogramS)>M):
+            if now_go_real: effectCount += 1
+            loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
+            arg = 0
+            try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
+            except:     arg = 0                    
+            arg = arg + 1                
+            Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
+            need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, len(loglookbackwardHistogramS)-10)
+            need_index = np.array(need_index)
+            need_index_plus_arg = need_index + arg
+            decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
 
-    realVideoFrameSize = []
-    readVideoFrameNo = []
+            if (now_go_real and len(percentiles)>=backTime*FPS):
+                tuned_epsilon = np.quantile(percentiles[:len(percentiles)-10], epsilon, method="median_unbiased")
+            else:
+                tuned_epsilon = epsilon
 
-    probabilityModel = np.array(probability)
-    toBeDeleted = pForgetList
+            # decision_list = loglookbackwardHistogramS
+            suggestedFrameSize = np.exp(np.quantile(decision_list, tuned_epsilon, method='median_unbiased'))
 
-    if (forTrain):
-        timeNeeded = timeDataLoad
-    else: 
-        timeNeeded = howLongIsVideo
+            maxData = utils.calMaxData(prevTime=runningTime, 
+                                    laterTime=runningTime+timeSlot, 
+                                    packet_level_timestamp= networkEnvTime,
+                                    packet_level_data= networkEnvPacket,)
+            log_maxData = np.log(maxData)       
+            percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
+            percentiles = percentiles[max(len(percentiles)-backTime * FPS, 0) : ]
 
-    tempTimeTrack = (1/FPS)*timeDataLoad
-    for _ in range(timeNeeded):
-        frame_prepared_time.append(tempTimeTrack)
-        tempTimeTrack = tempTimeTrack + 1/FPS
+
+    elif (algo == "OnRLS"):
+        updatedX = np.array(np.array(realVideoFrameSize[-5:])/np.array(transmitHistoryTimeLog[-5:])) if (len(realVideoFrameSize)>=5 and len(transmitHistoryTimeLog)>=5) else np.ones(5)
+        c_avg_new_hat = filt.predict(updatedX) 
+        pass
+        error_quantile = np.quantile(errors[-1000:], epsilon, method="median_unbiased") if len(errors)>0 else 0
+        r_k = c_avg_new_hat + error_quantile
+        suggestedFrameSize = timeSlot * r_k
+
+
+    if suggestedFrameSize == -np.Infinity:
+        suggestedFrameSize = c_hat_init * timeSlot
+
+
+    thisFrameSize =  max ( suggestedFrameSize, minimal_framesize ) # above is case-wise, now it is general to transmit a (video) frame
+
+    # Determination of "thisFrameSize" of Non-dummy Frame Part Ends Here. 
+    #######################################################################################
+
+
+
+    ########################################################################################
+    # Transmission of the Frame (whose size is determined done above) starts Here. 
+    uploadFinishTime = utils.paper_frame_upload_finish_time(runningTime,networkEnvPacket,networkEnvTime, thisFrameSize)[0]
+    uploadDuration = uploadFinishTime - runningTime; 
+
+    countSize = True
+    oldRunningTime = runningTime
+    runningTime = uploadFinishTime
+
+    if (uploadFinishTime > frame_capture_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame defective
+        countSize = False
+        countExceed = (countExceed + 1)  if now_go_real  else countExceed        # countExceed retores the No. of skips in the 100 frames
+        uploadDuration = frame_capture_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
+        runningTime = frame_capture_times[singleFrame] + 2/FPS + pBufferTime
+        thisFrameSize = utils.calMaxData(oldRunningTime,runningTime,networkEnvTime,networkEnvPacket)
+
+    throughputMeasure = thisFrameSize / uploadDuration
+    throughputHistoryLog.append(throughputMeasure)
+    transmitHistoryTimeLog.append(uploadDuration)
+    realVideoFrameSize.append(thisFrameSize)
     
 
-    uploadDuration = 0
-
-    # runningTime means the current time (called current_time in the ACM file)
-    runningTime = (1/FPS)*timeDataLoad
-
-    # initialize the C_0 hat
-    # in MB
-    throughputEstimate = (1/FPS) * mean(networkEnvTP) 
-    minimalSize = minimal_framesize
-    count_skip = 0
-
-    # Note that the frame_prepared_time every time is NON-SKIPPABLE
-    for singleFrame in range( timeNeeded ):
-        if (singleFrame % 10000 == 0 and forTrain == True): print(str(format(singleFrame/timeNeeded, ".3f"))+ " Please wait..." )
+    if (len(transmitHistoryTimeCum)>0):
+        transmitHistoryTimeCum.append(transmitHistoryTimeCum[-1]+uploadDuration)
+    else:
+        transmitHistoryTimeCum.append(uploadDuration)
     
-        # The "if" condition is a must
-        # otherwise I do not know the corresponding network environment (goes beyond the record of bandwidth).
-        if ( int(runningTime / networkSamplingInterval)  >= len(networkEnvTP)
-            or singleFrame>timeNeeded ):
-            break 
+    if (now_go_real and countSize):
+        videoCumsize += thisFrameSize
+        delays.append( runningTime - singleFrame*(1/FPS)) # playback time (transmission finish time) - capture time
 
-        if (singleFrame!=len(frame_prepared_time)-1 and 
-            runningTime > frame_prepared_time[singleFrame + 1] + 0 ):
-            
-            count_skip = count_skip + 1
-            continue
+    if algo == "OnRLS": 
+        errors.append(thisFrameSize / uploadDuration - c_avg_new_hat)
+        filt.adapt(thisFrameSize / uploadDuration, updatedX)
 
-        
-        delta = 0
-        if (singleFrame >0 
-            and ( runningTime <= cdn_arrive_time[-1] + 0.5*RTT 
-                or runningTime <= frame_prepared_time[singleFrame])): 
-            runningTime = max( cdn_arrive_time[-1] + 0.5 * RTT , frame_prepared_time[singleFrame]  )
-            
-            delta = (runningTime -  frame_prepared_time[singleFrame])
+    # Transmission of the Frame Ends Here.
+    ########################################################################################
 
-        if (estimatingType == "ProbabilityPredict" and len(throughputHistoryLog) > 0 ):
-            throughputEstimate =  ECMModel.probest( C_iMinus1=throughputHistoryLog[-1], binsMe=binsMe, probModel=probabilityModel, marginal = marginalSample )[0]
-            suggestedFrameSize = throughputEstimate * (1/FPS - RTT - delta) 
-            if (throughputEstimate == -1 and singleFrame!=0):
-                suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS - RTT - delta) 
-                        
-        elif (estimatingType == "LastMeasure" and len(throughputHistoryLog) > 0 ):
-            suggestedFrameSize = mean(throughputHistoryLog[ max(0,len(throughputHistoryLog)-pTrackUsed,): len(throughputHistoryLog) ]) * (1/FPS - RTT - delta) 
-                                
-        else: 
-            suggestedFrameSize = throughputEstimate* (1/FPS - RTT - delta)
+    # will go to next "singleFrame"
 
-        # print("dadad" + str(suggestedFrameSize))
-        thisFrameSize =  max ( suggestedFrameSize, minimalSize )
-
-        # if (singleFrame < howLongIsVideo and singleFrame % 20000 == 0):
-        #     print(str(throughputEstimate) + "是我的估計")
-
-        realVideoFrameSize.append( thisFrameSize )
-        readVideoFrameNo.append(singleFrame)
-
-        # print(singleFrame)
-        uploadFinishTime = utils.frame_upload_done_time(
-            runningTime = runningTime,
-            networkEnvBW = networkEnvTP,
-            size = thisFrameSize,
-            networkSamplingInterval = networkSamplingInterval)
-        
-        uploadDuration = uploadFinishTime - runningTime # upload 指的僅僅是把視頻塊塊搬上鏈路
-        
-        # frame_start_send_time is the list of UPLOADER's sending time on each frame
-        frame_start_send_time.append(runningTime)
-        runningTime = runningTime + uploadDuration + 0.5*RTT
-        # 到此為止 frame[singleFrame] 已經被完全傳送到CDN.
-        # cdn_arrive_time is the list of SERVER's completion time on each frame
-        cdn_arrive_time.append(runningTime)
-        difference = cdn_arrive_time[-1] - frame_start_send_time[-1]
-
-        # because always need the time to know that the frame arrives successfully.
-        # and also tell us the C_i to be used later.
-        runningTime = runningTime + 0.5*RTT
-
-        throughputEstimate =  thisFrameSize / uploadDuration
-        throughputHistoryLog.append(throughputEstimate)
-
-        if (len(throughputHistoryLog)>0 and estimatingType == "ProbabilityPredict"):
-                self = -1
-                past = -1
-
-                for indexSelf in range(len(binsMe)-1): 
-                    if (binsMe[indexSelf] <= throughputEstimate and binsMe[indexSelf+1] >throughputEstimate):
-                        self = indexSelf
-                    
-                for indexPast in range(len(binsMe)-1):
-                    if (binsMe[indexPast] <= throughputHistoryLog[-1] and binsMe[indexPast+1] > throughputHistoryLog[-1] ):
-                        past = indexPast
-
-                probabilityModel[past][self] += 1
-                
-                toBeDeleted.append(past)
-                toBeDeleted.append(self)
-
-                if (forTrain == False):
-                    probabilityModel[toBeDeleted[0]][toBeDeleted[1]] -= 1
-                    toBeDeleted = toBeDeleted[2:]
+per100lr = exceedsRatios[1:]
+maxThroughputAll =  utils.calMaxData(startingFrame*(1/FPS), runningTime, networkEnvTime, networkEnvPacket)
 
 
+print( "Mean throughput in Mbps: " + str( videoCumsize/(runningTime- startingFrame/FPS) ))
+print( "Max throughput in Mbps: " + str( maxThroughputAll/(runningTime- startingFrame/FPS) ))
+print( "Mean of per100lr: " + str( np.mean(per100lr)) )
+print( "Average delay time (about non-defective): " + str( np.mean(delays) ) + " seconds" )
 
-    return [
-        sum(realVideoFrameSize),
-        probabilityModel,
-        count_skip, 
-        minimalSize
-        ]
+pyplot.title("Dataset " + str(traceData))
+pyplot.plot(delays, color="blue")
+pyplot.axhline(pBufferTime, color="red")
+pyplot.legend(["real delay", "maxBuffer"])
+pyplot.show()
 
+pyplot.title("Dataset " + str(traceData))
+pyplot.plot(per100lr, color="blue")
+pyplot.xlabel("100 frames per slot")
+pyplot.ylabel("loss rate of that 100 frames")   
+pyplot.axhline(0.05, color="red")
+pyplot.legend(["real loss rate", "target 0.05"])
+pyplot.show()
 
-
-number = 3
-
-midPoint = 0.005
-
-
-mAxis = [1,16,128]
-xAxis = np.concatenate( (np.linspace(0.0001, midPoint ,num=3, endpoint=False), 
-                        np.linspace(midPoint, 0.06 ,num=number, endpoint=True)),
-                        axis=0)
-
-
-# pre = uploadProcess('dummyUsername0', 0.00001 , "ProbabilityPredict", [ [0] * len(binsMe)  for _ in range(len(binsMe))], forTrain=True)
-pre = utils.constructProbabilityModel(networkEnvBW=networkEnvTP[0:timeDataLoad] , binsMe=binsMe, networkSampleFreq=networkSamplingInterval, traceDataSampleFreq=networkSamplingInterval)
-model_trained = pre[0]
-forgetList = pre[1]
-
-for i in range( floor(samplePoints/2) ,floor(samplePoints/2)+5):
-        origData = utils.mleFunction(binsMe=binsMe , probability=model_trained, past= i)
-        y =  origData[-1]
-        ag, bg = laplace.fit( y )
-
-        pyplot.hist(y,bins=binsMe,density=False)
-        binUsed = [0] + binsMe
-        pyplot.plot(binsMe, 
-                    [ len(y)*( laplace.cdf(binUsed[min(v+1,len(binUsed)-1)], ag, bg) -laplace.cdf(binUsed[v], ag, bg) ) for v in range(len(binUsed))], 
-                    '--', 
-                    color ='black')
-        pyplot.xlabel("Sampled Ci's magnitude")
-        pyplot.ylabel("# of occurrence")
-        pyplot.show()
-
-df = pd.DataFrame(model_trained).to_csv("da.csv",header=False,index=False)
-
-toPlot = 0
-
-for trackUsed in mAxis:
-    y1Axis = []
-    y2Axis = []
-    y3Axis = []
-    z1Axis = []
-    z2Axis = []
-
-    for x in xAxis:
-        a = uploadProcess('dummyUsername1', x , "LastMeasure", "dummy", forTrain=False, pTrackUsed=trackUsed, pForgetList=[])
-        b = uploadProcess('dummyUsername2', x , "ProbabilityPredict", model_trained , forTrain=False, pTrackUsed=trackUsed, pForgetList=forgetList)
-        count_skipA = a[2]
-        count_skipB = b[2]
-        y1Axis.append(count_skipA/howLongIsVideo)
-        y2Axis.append(count_skipB/howLongIsVideo)
-
-        z1Axis.append(a[0])
-        z2Axis.append(b[0])
-
-        print("LastMeasure: " + str(a[0]) + " " + str(count_skipA/howLongIsVideo) + " with min-size: " + str(a[3]) )
-        print("ProbEstTest: " + str(b[0]) + " " + str(count_skipB/howLongIsVideo))
-
-
-    print("Mean of this network: " + str(mean(networkEnvTP)))
-    print("Var of ~: " + str(var(networkEnvTP)))
-
-
-    toPlot += 1
-    pyplot.subplot( len(mAxis),2,toPlot)
-    pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Loss Rate (Discard Rate)")
-    pyplot.plot(xAxis, y2Axis, '-s', color='blue', markersize=1, linewidth=1)
-    pyplot.plot(xAxis, y1Axis, '-s', color='red', markersize=1, linewidth=1)
-    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=2)
-
-    toPlot += 1
-    pyplot.subplot( len(mAxis),2,toPlot)
-    pyplot.xlabel("Minimal Each Frame Size (in MB)")
-    pyplot.ylabel("Data sent in" + str(howLongIsVideo/FPS) +"sec" )
-    pyplot.plot(xAxis, z2Axis, '-s', color='blue',
-                markersize=1, linewidth=1)
-    pyplot.plot(xAxis, z1Axis, '-s', color='red',
-                markersize=1, linewidth=1)
-    pyplot.legend( ["Condt'l Mean", "A.M. M=" + str(trackUsed),], loc=2)
-
+pyplot.hist(percentiles, bins=50, cumulative=True, density=True)
+pyplot.axline((0, 0), slope=1)
 pyplot.show()
 
 
 
 
+
+
+print("Done!")

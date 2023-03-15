@@ -173,15 +173,15 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
             backLen = FPS * backSeconds
             timeSlot = frame_prepared_times[singleFrame] + 2/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
-            if (sum(transmitHistoryTimeLog) >= cut_off_time1 and estimatingType == "ProbabilityPredict"):
-                lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
-                                            pastDurations= transmitHistoryTimeLog,
-                                            pastDurationsCum= transmitHistoryTimeCum,
-                                            pastSizes= realVideoFrameSize, 
-                                            backLen= backLen,
-                                            timeSlot= timeSlot, )
+            # if (sum(transmitHistoryTimeLog) >= cut_off_time1 and estimatingType == "ProbabilityPredict"):
+            #     lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
+            #                                 pastDurations= transmitHistoryTimeLog,
+            #                                 pastDurationsCum= transmitHistoryTimeCum,
+            #                                 pastSizes= realVideoFrameSize, 
+            #                                 backLen= backLen,
+            #                                 timeSlot= timeSlot, )
 
-            else: lookbackwardHistogramS = []
+            # else: lookbackwardHistogramS = []
 
             if (estimatingType == "onlineRLS"):
                 c_avg_new_hat = filt.predict(lastX) 
@@ -192,44 +192,44 @@ def uploadProcess( minimal_framesize, estimatingType, pTrackUsed, pBufferTime):
                 r_k = c_avg_new_hat + error_quantile
                 suggestedFrameSize = timeSlot * r_k
             
-            if (len(lookbackwardHistogramS)>0):
-                if (estimatingType == "ProbabilityPredict"):
+            # if (len(lookbackwardHistogramS)>0):
+            #     if (estimatingType == "ProbabilityPredict"):
 
-                    loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
+            #         loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
 
-                    arg = 0
-                    try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
-                    except:     arg = 0                    
-                    arg = arg + 1
+            #         arg = 0
+            #         try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
+            #         except:     arg = 0                    
+            #         arg = arg + 1
 
-                    if now_go_real: effectCount += 1
-                    # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
-                    Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
-                    need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, M)
-                    need_index = np.array(need_index)
-                    need_index_plus_arg = need_index + arg
-                    decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
+            #         if now_go_real: effectCount += 1
+            #         # print("len of lookbackwardHistogramS: " + str(len(lookbackwardHistogramS)))
+            #         Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
+            #         need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, M)
+            #         need_index = np.array(need_index)
+            #         need_index_plus_arg = need_index + arg
+            #         decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
 
-                    if (now_go_real and len(percentiles)>=cut_off_time2*FPS):
-                        controlled_epsilon = np.quantile(percentiles[:len(percentiles)-10], pEpsilon, method="median_unbiased")
-                    else:
-                        controlled_epsilon = pEpsilon
+            #         if (now_go_real and len(percentiles)>=cut_off_time2*FPS):
+            #             controlled_epsilon = np.quantile(percentiles[:len(percentiles)-10], pEpsilon, method="median_unbiased")
+            #         else:
+            #             controlled_epsilon = pEpsilon
 
-                    suggestedFrameSize = np.exp(quantile(decision_list, controlled_epsilon, method='median_unbiased'))
-                    count_Cond_AlgoTimes += 1
-                    if (now_go_real): cumPartSize += suggestedFrameSize
+            #         suggestedFrameSize = np.exp(quantile(decision_list, controlled_epsilon, method='median_unbiased'))
+            #         count_Cond_AlgoTimes += 1
+            #         if (now_go_real): cumPartSize += suggestedFrameSize
 
-                    maxData = utils.calMaxData(prevTime=runningTime, 
-                                            laterTime=runningTime+timeSlot, 
-                                            packet_level_timestamp= networkEnvTime,
-                                            packet_level_data= networkEnvPacket,)
-                    log_maxData = np.log(maxData)       
-                    percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
-                    percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
+            #         maxData = utils.calMaxData(prevTime=runningTime, 
+            #                                 laterTime=runningTime+timeSlot, 
+            #                                 packet_level_timestamp= networkEnvTime,
+            #                                 packet_level_data= networkEnvPacket,)
+            #         log_maxData = np.log(maxData)       
+            #         percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
+            #         percentiles = percentiles[max(len(percentiles)-cut_off_time2 * FPS, 0) : ]
 
-            elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
-                # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
-                switch_to_AM = True            
+            # elif (len(throughputHistoryLog)==0 or len(lookbackwardHistogramS) == 0): 
+            #     # Remember: when runningTime < cut_off_time, then assign len(lookbackwardHistogramS) = 0
+            #     switch_to_AM = True            
 
 
 
