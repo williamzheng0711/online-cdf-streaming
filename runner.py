@@ -11,7 +11,7 @@ from optparse import OptionParser
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
 pBufferTime = 2/FPS
-minimal_framesize = 0.005*1000/1024
+minimal_framesize = 1e-7
 M = 30
 
 
@@ -138,44 +138,59 @@ for singleFrame in range( fullTimeInSec * FPS ):
     if (algo == "OnCPD"):
         backTime = 60
         backLen = FPS * backTime
-        if len(transmitHistoryTimeLog) > 0 and algo == "OnCPD":
+        if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                         pastDurations= transmitHistoryTimeLog,
                                         pastDurationsCum= transmitHistoryTimeCum,
                                         pastSizes= realVideoFrameSize, 
                                         backLen= backLen,
-                                        timeSlot= timeSlot, )
+                                        timeSlot= timeSlot)
 
-        else: lookbackwardHistogramS = []
+        else: 
+            lookbackwardHistogramS = []
 
         if (len(lookbackwardHistogramS)>M):
             if now_go_real: effectCount += 1
             loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
-            arg = 0
-            try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
-            except:     arg = 0                    
-            arg = arg + 1                
-            Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
-            need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, len(loglookbackwardHistogramS)-10)
-            need_index = np.array(need_index)
-            need_index_plus_arg = need_index + arg
-            decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
+
+
+            # arg = 0
+            # try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
+            # except:     arg = 0                    
+            # arg = arg + 1                
+            # Shat_iMinus1 = loglookbackwardHistogramS[-1*arg]
+            # need_index = utils.extract_nearest_M_values_index(loglookbackwardHistogramS, Shat_iMinus1, M)
+            # need_index = np.array(need_index)
+            # need_index_plus_arg = need_index + arg
+            # decision_list = [loglookbackwardHistogramS[a] for a in need_index_plus_arg if a < len(loglookbackwardHistogramS)]
+
+            decision_list = loglookbackwardHistogramS
 
             if (now_go_real and len(percentiles)>=backTime*FPS):
                 tuned_epsilon = np.quantile(percentiles[:len(percentiles)-10], epsilon, method="median_unbiased")
             else:
                 tuned_epsilon = epsilon
 
-            # decision_list = loglookbackwardHistogramS
             suggestedFrameSize = np.exp(np.quantile(decision_list, tuned_epsilon, method='median_unbiased'))
 
             maxData = utils.calMaxData(prevTime=runningTime, 
                                     laterTime=runningTime+timeSlot, 
                                     packet_level_timestamp= networkEnvTime,
                                     packet_level_data= networkEnvPacket,)
-            log_maxData = np.log(maxData)       
+            log_maxData = np.log(maxData)
+            # maxDataSmall = utils.calMaxData(prevTime=runningTime, 
+            #                         laterTime=runningTime+1/FPS, 
+            #                         packet_level_timestamp= networkEnvTime,
+            #                         packet_level_data= networkEnvPacket,)       
+            # if now_go_real: print(singleFrame, maxData , maxDataSmall, suggestedFrameSize)
+
             percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
             percentiles = percentiles[max(len(percentiles)-backTime * FPS, 0) : ]
+        
+        # else: 
+        #     if now_go_real: 
+        #         print(singleFrame, "WHAT??", len(lookbackwardHistogramS))
+        #         break
 
 
     elif (algo == "OnRLS"):
@@ -184,7 +199,13 @@ for singleFrame in range( fullTimeInSec * FPS ):
         pass
         error_quantile = np.quantile(errors[-1000:], epsilon, method="median_unbiased") if len(errors)>0 else 0
         r_k = c_avg_new_hat + error_quantile
+        # r_k = c_avg_new_hat
         suggestedFrameSize = timeSlot * r_k
+        maxData = utils.calMaxData(prevTime=runningTime, 
+                                    laterTime=runningTime+timeSlot, 
+                                    packet_level_timestamp= networkEnvTime,
+                                    packet_level_data= networkEnvPacket,)
+        # print(singleFrame, maxData, suggestedFrameSize, c_avg_new_hat, error_quantile)
 
 
     if suggestedFrameSize == -np.Infinity:
@@ -213,6 +234,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
         uploadDuration = frame_capture_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
         runningTime = frame_capture_times[singleFrame] + 2/FPS + pBufferTime
         thisFrameSize = utils.calMaxData(oldRunningTime,runningTime,networkEnvTime,networkEnvPacket)
+        # if now_go_real: print(singleFrame,thisFrameSize)
 
     throughputMeasure = thisFrameSize / uploadDuration
     throughputHistoryLog.append(throughputMeasure)
@@ -231,11 +253,11 @@ for singleFrame in range( fullTimeInSec * FPS ):
 
     if algo == "OnRLS": 
         errors.append(thisFrameSize / uploadDuration - c_avg_new_hat)
+        # print(singleFrame, thisFrameSize / uploadDuration - c_avg_new_hat)
         filt.adapt(thisFrameSize / uploadDuration, updatedX)
 
     # Transmission of the Frame Ends Here.
     ########################################################################################
-
     # will go to next "singleFrame"
 
 per100lr = exceedsRatios[1:]
