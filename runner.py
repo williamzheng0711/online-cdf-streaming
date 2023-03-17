@@ -10,7 +10,7 @@ from optparse import OptionParser
 #### Some constants.
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-pBufferTime = 2/FPS
+pBufferTime = 3/FPS
 minimal_framesize = 1e-7
 M = 30
 
@@ -133,7 +133,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
     ########################################################################################
     # Determination of "thisFrameSize" of Non-dummy Frame Part Starts Here. 
     suggestedFrameSize = -np.Infinity 
-    timeSlot = frame_capture_times[singleFrame] + 2/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
+    timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
     if (algo == "OnCPD"):
         backTime = 60
@@ -228,11 +228,11 @@ for singleFrame in range( fullTimeInSec * FPS ):
     oldRunningTime = runningTime
     runningTime = uploadFinishTime
 
-    if (uploadFinishTime > frame_capture_times[singleFrame] + 2/FPS + pBufferTime):    # encounter with frame defective
+    if (uploadFinishTime > frame_capture_times[singleFrame] + 1/FPS + pBufferTime):    # encounter with frame defective
         countSize = False
         countExceed = (countExceed + 1)  if now_go_real  else countExceed        # countExceed retores the No. of skips in the 100 frames
-        uploadDuration = frame_capture_times[singleFrame] + 2/FPS + pBufferTime - oldRunningTime 
-        runningTime = frame_capture_times[singleFrame] + 2/FPS + pBufferTime
+        uploadDuration = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - oldRunningTime 
+        runningTime = frame_capture_times[singleFrame] + 1/FPS + pBufferTime
         thisFrameSize = utils.calMaxData(oldRunningTime,runningTime,networkEnvTime,networkEnvPacket)
         # if now_go_real: print(singleFrame,thisFrameSize)
 
@@ -279,7 +279,7 @@ pyplot.title("Dataset " + str(traceData))
 pyplot.plot(per100lr, color="blue")
 pyplot.xlabel("100 frames per slot")
 pyplot.ylabel("loss rate of that 100 frames")   
-pyplot.axhline(0.05, color="red")
+pyplot.axhline(epsilon, color=str(epsilon))
 pyplot.legend(["real loss rate", "target 0.05"])
 pyplot.show()
 
