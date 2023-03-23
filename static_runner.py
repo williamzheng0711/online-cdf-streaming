@@ -40,7 +40,7 @@ maxPossibleSize = 0
 
 ## OnRLS
 pastLen = 5
-arimaPastLen = 150
+arimaPastLen = 400
 filt = pa.filters.FilterRLS(pastLen, mu=0.999)
 guesses = []
 
@@ -51,13 +51,14 @@ for runningIndex in tqdm(range(startIndex, startIndex + testingSize)):
         pass
         error_quantile = np.quantile(errors[-1000:], epsilon, method="median_unbiased") if len(errors)>0 else 0
         guess = max(c_avg_new_hat + error_quantile,0)
+        guesses.append(guess)
         gap = networkEnvPacket[runningIndex] - guess
         errors.append(gap)
         filt.adapt(networkEnvPacket[runningIndex], last5)
 
     elif algo == "ARIMA":
-        arima = pm.auto_arima(networkEnvPacket[runningIndex-arimaPastLen:runningIndex], 
-                            #   error_action='ignore', 
+        arima = pm.auto_arima(networkEnvPacket[:runningIndex], 
+                            # error_action='ignore', 
                               trace=False,
                               suppress_warnings=True, 
                               maxiter=50, 
@@ -77,7 +78,13 @@ for runningIndex in tqdm(range(startIndex, startIndex + testingSize)):
 print("actual over-estimate rate", loss / testingSize)
 print("actual bandwidth utilization", realSizeCum / maxPossibleSize)
 
-if algo == "ARIMA":
+if algo == "OnRLS":
+    pyplot.plot(range(startIndex, startIndex + testingSize), guesses, 'o-')
+    pyplot.plot(range(startIndex, startIndex + testingSize), networkEnvPacket[startIndex:startIndex + testingSize], 'o-')
+    pyplot.legend(["OnRLS Decision", "Ground truth"])
+    pyplot.show()
+
+elif algo == "ARIMA":
     pyplot.plot(range(startIndex, startIndex + testingSize), guesses, 'o-')
     pyplot.plot(range(startIndex, startIndex + testingSize), networkEnvPacket[startIndex:startIndex + testingSize], 'o-')
     pyplot.legend(["ARIMA Predict", "Ground truth"])

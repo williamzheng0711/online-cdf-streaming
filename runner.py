@@ -136,8 +136,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
     timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
     if (algo == "OnCPD"):
-        backTime = 60
-        backLen = FPS * backTime
+        backLen = FPS * 60
         if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                         pastDurations= transmitHistoryTimeLog,
@@ -166,7 +165,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
 
             decision_list = loglookbackwardHistogramS
 
-            if (now_go_real and len(percentiles)>=backTime*FPS):
+            if (now_go_real and len(percentiles)>=backLen):
                 tuned_epsilon = np.quantile(percentiles[:len(percentiles)-10], epsilon, method="median_unbiased")
             else:
                 tuned_epsilon = epsilon
@@ -185,7 +184,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
             # if now_go_real: print(singleFrame, maxData , maxDataSmall, suggestedFrameSize)
 
             percentiles.append( np.count_nonzero(decision_list <= log_maxData) / len(decision_list) )
-            percentiles = percentiles[max(len(percentiles)-backTime * FPS, 0) : ]
+            percentiles = percentiles[max(len(percentiles)-backLen, 0) : ]
         
         # else: 
         #     if now_go_real: 
