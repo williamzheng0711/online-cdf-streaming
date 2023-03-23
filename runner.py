@@ -3,6 +3,7 @@ import padasip as pa
 import utils
 import matplotlib.pyplot as pyplot
 
+from tqdm import tqdm
 from statsmodels.tsa.stattools import acf, pacf
 from optparse import OptionParser
 
@@ -18,14 +19,14 @@ M = 30
 #### Some user input parameters. 
 parser = OptionParser()
 parser.add_option("--args", type="string", dest="args", help="Arguments", default="")
-parser.add_option("--algo", type="string", dest="algo", help="Which method to run? Choose ONE from 'OnCPD', 'OnRLS'.", default="OnCPD")
-parser.add_option("--epsilon", type="float", dest="epsilon", help="Target frame loss rate (only useful for OnCPD and OnRLS)", default=0.05)
+parser.add_option("--algo", type="string", dest="algo", help="Which method to run? Choose ONE from 'OnABC', 'OnRLS'.", default="OnABC")
+parser.add_option("--epsilon", type="float", dest="epsilon", help="Target frame loss rate (only useful for OnABC and OnRLS)", default=0.05)
 parser.add_option("--traceData", type="int", dest="traceData", help="Which trace data to simulate with? Input a number between 1 to 18", default=18)
 parser.add_option("--trainTime", type="int", dest="trainTime", help="How long (in seconds) is the training time interval in trace data?", default=200)
 parser.add_option("--testTime", type="int", dest="testTime", help="How long (in seconds) is the testing time interval in trace data?", default=600)
 (options, args) = parser.parse_args()
 algo = options.algo
-assert algo in ["OnCPD", "OnRLS"]
+assert algo in ["OnABC", "OnRLS"]
 traceData = options.traceData
 assert traceData in range(19)
 trainTime = options.trainTime                                      # number of active users
@@ -93,11 +94,12 @@ delays = []
 errors = []
 tuned_epsilon = epsilon
 startingFrame = -1
+debug = False
 
 filt = pa.filters.FilterRLS(5, mu=0.999)  
 
 ### Transmit every frame, until we reach fullTimeInSec
-for singleFrame in range( fullTimeInSec * FPS ):
+for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range( fullTimeInSec * FPS ):
     assert runningTime - (frame_capture_times[singleFrame] + 1/FPS + pBufferTime) <= 1e-5
 
     # We want to know if we've trained for enough time
@@ -112,14 +114,14 @@ for singleFrame in range( fullTimeInSec * FPS ):
         message1 = "Frame: "+str(singleFrame)+". Now is time: "+str(runningTime)
         if now_go_real:
             message = message1 + " Exceed counts: " + str(countExceed)
-            if algo == "OnCPD": 
+            if algo == "OnABC" and debug: 
                 print(message+" Tuned epsilon: "+str(tuned_epsilon)) 
-            elif algo == "OnRLS": 
+            elif algo == "OnRLS" and debug: 
                 print(message) 
             exceedsRatios.append( countExceed/100 )
             countExceed = 0 
-        elif now_go_real == False:
-             print(message1)
+        elif now_go_real == False and debug:
+            print(message1)
 
     # To return an end if has reached the terminus
     if runningTime > fullTimeInSec: 
@@ -135,7 +137,7 @@ for singleFrame in range( fullTimeInSec * FPS ):
     suggestedFrameSize = -np.Infinity 
     timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
-    if (algo == "OnCPD"):
+    if (algo == "OnABC"):
         backLen = FPS * 60
         if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
