@@ -270,23 +270,23 @@ print( "Max throughput in Mbps: " + str( maxThroughputAll/(runningTime- starting
 print( "Mean of per100lr: " + str( np.mean(per100lr)) )
 print( "Average delay time (about non-defective): " + str( np.mean(delays) ) + " seconds" )
 
-pyplot.title("Dataset " + str(traceData))
-pyplot.plot(delays, color="blue")
-pyplot.axhline(pBufferTime, color="red")
-pyplot.legend(["real delay", "maxBuffer"])
-pyplot.show()
+# pyplot.title("Dataset " + str(traceData))
+# pyplot.plot(delays, color="blue")
+# pyplot.axhline(pBufferTime, color="red")
+# pyplot.legend(["real delay", "maxBuffer"])
+# pyplot.show()
 
-pyplot.title("Dataset " + str(traceData))
-pyplot.plot(per100lr, color="blue")
-pyplot.xlabel("100 frames per slot")
-pyplot.ylabel("loss rate of that 100 frames")   
-pyplot.axhline(epsilon, color=str(epsilon))
-pyplot.legend(["real loss rate", "target 0.05"])
-pyplot.show()
+# pyplot.title("Dataset " + str(traceData))
+# pyplot.plot(per100lr, color="blue")
+# pyplot.xlabel("100 frames per slot")
+# pyplot.ylabel("loss rate of that 100 frames")   
+# pyplot.axhline(epsilon, color=str(epsilon))
+# pyplot.legend(["real loss rate", "target 0.05"])
+# pyplot.show()
 
-pyplot.hist(percentiles, bins=50, cumulative=True, density=True)
-pyplot.axline((0, 0), slope=1)
-pyplot.show()
+# pyplot.hist(percentiles, bins=50, cumulative=True, density=True)
+# pyplot.axline((0, 0), slope=1)
+# pyplot.show()
 
 
 
