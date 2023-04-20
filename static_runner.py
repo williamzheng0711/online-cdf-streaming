@@ -24,8 +24,8 @@ assert epsilon > 0 and epsilon < 1
 
 FPS = 30
 startIndex = 300
-testingSize = 200
-traceData = 3
+testingSize = 3000
+traceData = 18
 
 ### Read in the trace data. 
 
@@ -76,10 +76,10 @@ for runningIndex in tqdm(range(0, startIndex + testingSize)):
         last5 = np.array(networkEnvBandwidth[runningIndex-pastLen:runningIndex]) if runningIndex > pastLen else np.zeros(pastLen)
         c_avg_new_hat = filt.predict(last5) 
         pass
-        error_quantile = np.quantile(errors[-200:], epsilon, method="median_unbiased") if len(errors)>0 else 0
+        error_quantile = np.quantile(errors[-1000:], epsilon, method="median_unbiased") if len(errors)>0 else 0
         guess = max(c_avg_new_hat + error_quantile,0)
         guesses.append(guess)
-        gap = networkEnvBandwidth[runningIndex] - guess
+        gap = networkEnvBandwidth[runningIndex] - c_avg_new_hat
         errors.append(gap)
         filt.adapt(networkEnvBandwidth[runningIndex], last5)
 
@@ -99,7 +99,7 @@ for runningIndex in tqdm(range(0, startIndex + testingSize)):
             guesses.append(guess)
     
     if now_go_real:
-        if gap < 0:
+        if networkEnvBandwidth[runningIndex] - guess < 0:
             loss += 1
         else: 
             realSizeCum += guess
@@ -113,6 +113,9 @@ if algo == "OnRLS":
     pyplot.plot(range(startIndex, startIndex + testingSize), guesses[startIndex:startIndex + testingSize], 'o-')
     pyplot.plot(range(startIndex, startIndex + testingSize), networkEnvBandwidth[startIndex:startIndex + testingSize], 'o-')
     pyplot.legend(["OnRLS Decision", "Ground truth"])
+    pyplot.show()
+
+    pyplot.hist(errors, bins=50)
     pyplot.show()
 
 elif algo == "ARIMA":

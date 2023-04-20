@@ -37,9 +37,9 @@ epsilon = options.epsilon
 assert epsilon > 0 and epsilon < 1
 
 
-
 ### Read in the trace data. 
 traceDir = './dataset/fyp_lab/'
+print("現在用的是dataset " + str(traceData) + " pBufferTime=" + str(pBufferTime))
 count = 0
 initialTime = 0
 networkEnvTime = [] 
@@ -92,6 +92,7 @@ decision_list = []
 percentiles = []
 delays = []
 errors = []
+credibleLens = []
 tuned_epsilon = epsilon
 startingFrame = -1
 debug = False
@@ -154,7 +155,6 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
             if now_go_real: effectCount += 1
             loglookbackwardHistogramS = np.log(np.array(lookbackwardHistogramS))
 
-
             # arg = 0
             # try:    arg = np.argmax(pacf(np.array(loglookbackwardHistogramS))[1:])
             # except:     arg = 0                    
@@ -172,7 +172,10 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
             else:
                 tuned_epsilon = epsilon
 
-            suggestedFrameSize = np.exp(np.quantile(decision_list, tuned_epsilon, method='median_unbiased'))
+            credibleRegion90Len = np.exp(np.quantile(decision_list, 0.95)) - np.exp(np.quantile(decision_list, 0.05))
+            credibleLens.append(credibleRegion90Len)
+
+            suggestedFrameSize = np.exp(np.quantile(decision_list, tuned_epsilon))
 
             maxData = utils.calMaxData(prevTime=runningTime, 
                                     laterTime=runningTime+timeSlot, 
@@ -198,15 +201,17 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
         updatedX = np.array(np.array(realVideoFrameSize[-5:])/np.array(transmitHistoryTimeLog[-5:])) if (len(realVideoFrameSize)>=5 and len(transmitHistoryTimeLog)>=5) else np.ones(5)
         c_avg_new_hat = filt.predict(updatedX) 
         pass
-        error_quantile = np.quantile(errors[-1000:], epsilon, method="median_unbiased") if len(errors)>0 else 0
+        error_quantile = np.quantile(errors[-1000:], epsilon) if len(errors)>0 else 0
         r_k = c_avg_new_hat + error_quantile
         # r_k = c_avg_new_hat
+
+        credibleRegion90Len = (np.quantile(errors[-1000:], 0.95) - np.quantile(errors[-1000:], 0.05)) if len(errors)>0 else 0
+        credibleLens.append(credibleRegion90Len)
         suggestedFrameSize = timeSlot * r_k
-        maxData = utils.calMaxData(prevTime=runningTime, 
-                                    laterTime=runningTime+timeSlot, 
-                                    packet_level_timestamp= networkEnvTime,
-                                    packet_level_data= networkEnvPacket,)
-        # print(singleFrame, maxData, suggestedFrameSize, c_avg_new_hat, error_quantile)
+        # maxData = utils.calMaxData(prevTime=runningTime, 
+        #                             laterTime=runningTime+timeSlot, 
+        #                             packet_level_timestamp= networkEnvTime,
+        #                             packet_level_data= networkEnvPacket,)
 
 
     if suggestedFrameSize == -np.Infinity:
@@ -261,10 +266,16 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     ########################################################################################
     # will go to next "singleFrame"
 
+pyplot.hist(errors,bins=1000, range=(-50,50))
+pyplot.show()
 per100lr = exceedsRatios[1:]
 maxThroughputAll =  utils.calMaxData(startingFrame*(1/FPS), runningTime, networkEnvTime, networkEnvPacket)
 
+JBurn = int(len(credibleLens)/2)
+pyplot.plot(credibleLens[JBurn:])
+pyplot.show()
 
+print( "Mean of credible lengths: " + str(np.mean(credibleLens[JBurn:])))
 print( "Mean throughput in Mbps: " + str( videoCumsize/(runningTime- startingFrame/FPS) ))
 print( "Max throughput in Mbps: " + str( maxThroughputAll/(runningTime- startingFrame/FPS) ))
 print( "Mean of per100lr: " + str( np.mean(per100lr)) )
