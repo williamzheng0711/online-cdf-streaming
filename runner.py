@@ -97,7 +97,7 @@ tuned_epsilon = epsilon
 startingFrame = -1
 debug = False
 
-filt = pa.filters.FilterRLS(5, mu=0.999)  
+filt = pa.filters.FilterRLS(5*2+1, mu=0.99)  
 
 ### Transmit every frame, until we reach fullTimeInSec
 for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range( fullTimeInSec * FPS ):
@@ -173,6 +173,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
                 tuned_epsilon = epsilon
 
             credibleRegion90Len = np.exp(np.quantile(decision_list, 0.95)) - np.exp(np.quantile(decision_list, 0.05))
+            # print("UL:" + str(np.exp(np.quantile(decision_list, 0.95))) +"  LL:" + str(np.exp(np.quantile(decision_list, 0.05))))
             credibleLens.append(credibleRegion90Len)
 
             suggestedFrameSize = np.exp(np.quantile(decision_list, tuned_epsilon))
@@ -198,14 +199,23 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
 
 
     elif (algo == "OnRLS"):
-        updatedX = np.array(np.array(realVideoFrameSize[-5:])/np.array(transmitHistoryTimeLog[-5:])) if (len(realVideoFrameSize)>=5 and len(transmitHistoryTimeLog)>=5) else np.ones(5)
+        arr1 = np.array(np.array(realVideoFrameSize[-5:])/np.array(transmitHistoryTimeLog[-5:])) if (len(realVideoFrameSize)>=5 and len(transmitHistoryTimeLog)>=5) else np.ones(5) 
+        # arr2 = np.array(realVideoFrameSize[-5:]) if len(realVideoFrameSize)>=5 else np.ones(5)
+        arr3 = np.array(transmitHistoryTimeLog[-5:]) if len(transmitHistoryTimeLog)>=5 else np.ones(5) 
+        arr3 = np.append(arr3, timeSlot)
+        input = np.concatenate((arr1, arr3))
+        # print(input)
+        updatedX = input
+                   
         c_avg_new_hat = filt.predict(updatedX) 
         pass
         error_quantile = np.quantile(errors[-1000:], epsilon) if len(errors)>0 else 0
         r_k = c_avg_new_hat + error_quantile
         # r_k = c_avg_new_hat
 
-        credibleRegion90Len = (np.quantile(errors[-1000:], 0.95) - np.quantile(errors[-1000:], 0.05)) if len(errors)>0 else 0
+        credibleRegion90Len = timeSlot*(np.quantile(errors[-1000:], 0.95) - np.quantile(errors[-1000:], 0.05)) if len(errors)>0 else 0
+        # if len(errors) > 0:
+            # print("UL: " + str(timeSlot*np.quantile(errors[-1000:], 0.95)) +" LL:" + str(timeSlot*np.quantile(errors[-1000:], 0.05))) 
         credibleLens.append(credibleRegion90Len)
         suggestedFrameSize = timeSlot * r_k
         # maxData = utils.calMaxData(prevTime=runningTime, 
