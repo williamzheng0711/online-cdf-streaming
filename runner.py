@@ -13,7 +13,7 @@ howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
 pBufferTime = 3/FPS
 minimal_framesize = 1e-7
-M = 30
+M = 50
 
 
 #### Some user input parameters. 
@@ -97,7 +97,7 @@ tuned_epsilon = epsilon
 startingFrame = -1
 debug = False
 
-filt = pa.filters.FilterRLS(5*2+1, mu=0.99)  
+filt = pa.filters.FilterRLS(5, mu=0.99)  
 
 ### Transmit every frame, until we reach fullTimeInSec
 for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range( fullTimeInSec * FPS ):
@@ -139,7 +139,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
     if (algo == "OnABC"):
-        backLen = FPS * 30
+        backLen = FPS * M
         if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                         pastDurations= transmitHistoryTimeLog,
@@ -201,9 +201,10 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     elif (algo == "OnRLS"):
         arr1 = np.array(np.array(realVideoFrameSize[-5:])/np.array(transmitHistoryTimeLog[-5:])) if (len(realVideoFrameSize)>=5 and len(transmitHistoryTimeLog)>=5) else np.ones(5) 
         # arr2 = np.array(realVideoFrameSize[-5:]) if len(realVideoFrameSize)>=5 else np.ones(5)
-        arr3 = np.array(transmitHistoryTimeLog[-5:]) if len(transmitHistoryTimeLog)>=5 else np.ones(5) 
-        arr3 = np.append(arr3, timeSlot)
-        input = np.concatenate((arr1, arr3))
+        # arr3 = np.array(transmitHistoryTimeLog[-5:]) if len(transmitHistoryTimeLog)>=5 else np.ones(5) 
+        # arr3 = np.append(arr3, timeSlot)
+        # input = np.concatenate((arr1, arr3))
+        input = arr1
         # print(input)
         updatedX = input
                    
@@ -214,8 +215,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
         # r_k = c_avg_new_hat
 
         credibleRegion90Len = timeSlot*(np.quantile(errors[-1000:], 0.95) - np.quantile(errors[-1000:], 0.05)) if len(errors)>0 else 0
-        # if len(errors) > 0:
-            # print("UL: " + str(timeSlot*np.quantile(errors[-1000:], 0.95)) +" LL:" + str(timeSlot*np.quantile(errors[-1000:], 0.05))) 
+        
         credibleLens.append(credibleRegion90Len)
         suggestedFrameSize = timeSlot * r_k
         # maxData = utils.calMaxData(prevTime=runningTime, 
@@ -250,7 +250,6 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
         uploadDuration = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - oldRunningTime 
         runningTime = frame_capture_times[singleFrame] + 1/FPS + pBufferTime
         thisFrameSize = utils.calMaxData(oldRunningTime,runningTime,networkEnvTime,networkEnvPacket)
-        # if now_go_real: print(singleFrame,thisFrameSize)
 
     throughputMeasure = thisFrameSize / uploadDuration
     throughputHistoryLog.append(throughputMeasure)
@@ -265,7 +264,9 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     
     if (now_go_real and countSize):
         videoCumsize += thisFrameSize
-        delays.append( runningTime - singleFrame*(1/FPS)) # playback time (transmission finish time) - capture time
+        if  runningTime - frame_capture_times[singleFrame] > 1/FPS + pBufferTime:
+            print(runningTime, frame_capture_times[singleFrame])
+        delays.append( runningTime - frame_capture_times[singleFrame]) # playback time (transmission finish time) - capture time
 
     if algo == "OnRLS": 
         errors.append(thisFrameSize / uploadDuration - c_avg_new_hat)
@@ -282,12 +283,12 @@ per100lr = exceedsRatios[1:]
 maxThroughputAll =  utils.calMaxData(startingFrame*(1/FPS), runningTime, networkEnvTime, networkEnvPacket)
 
 JBurn = int(len(credibleLens)/2)
-pyplot.plot(credibleLens[JBurn:])
-pyplot.show()
+# pyplot.plot(credibleLens[JBurn:])
+# pyplot.show()
 
 print( "Mean of credible lengths: " + str(np.mean(credibleLens[JBurn:])))
 print( "Mean throughput in Mbps: " + str( videoCumsize/(runningTime- startingFrame/FPS) ))
-print( "Max throughput in Mbps: " + str( maxThroughputAll/(runningTime- startingFrame/FPS) ))
+print( "Avg. Bandwidth in Mbps: " + str( maxThroughputAll/(runningTime- startingFrame/FPS) ))
 print( "Mean of per100lr: " + str( np.mean(per100lr)) )
 print( "Average delay time (about non-defective): " + str( np.mean(delays) ) + " seconds" )
 
