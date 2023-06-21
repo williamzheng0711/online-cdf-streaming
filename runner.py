@@ -139,7 +139,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
     if (algo == "OnABC"):
-        backLen = FPS * 60
+        backLen = FPS * 30
         if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
                                         pastDurations= transmitHistoryTimeLog,
