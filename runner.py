@@ -11,7 +11,6 @@ from optparse import OptionParser
 #### Some constants.
 howmany_Bs_IN_1Mb = 1024*1024/8  # 1Mb = 1/8 MB = 1/8*1024*1024
 FPS = 30                         # frame per second
-pBufferTime = 3/FPS
 minimal_framesize = 1e-7
 M = 50
 
@@ -19,14 +18,15 @@ M = 50
 #### Some user input parameters. 
 parser = OptionParser()
 parser.add_option("--args", type="string", dest="args", help="Arguments", default="")
-parser.add_option("--algo", type="string", dest="algo", help="Which method to run? Choose ONE from 'OnABC', 'OnRLS'.", default="OnABC")
-parser.add_option("--epsilon", type="float", dest="epsilon", help="Target frame loss rate (only useful for OnABC and OnRLS)", default=0.05)
-parser.add_option("--traceData", type="int", dest="traceData", help="Which trace data to simulate with? Input a number between 1 to 18", default=18)
-parser.add_option("--trainTime", type="int", dest="trainTime", help="How long (in seconds) is the training time interval in trace data?", default=200)
-parser.add_option("--testTime", type="int", dest="testTime", help="How long (in seconds) is the testing time interval in trace data?", default=600)
+parser.add_option("--algo", type="string", dest="algo", help="Which method to run? Choose ONE from 'OnCDF', 'OnRLS'.", default="OnCDF")
+parser.add_option("--epsilon", type="float", dest="epsilon", help="Target frame loss rate (only useful for OnCDF and OnRLS)", default=0.05)
+parser.add_option("--traceData", type="int", dest="traceData", help="Which trace data to simulate with? Input a number between 1 to 18", default=-1)
+parser.add_option("--trainTime", type="int", dest="trainTime", help="How long (in seconds) is the training time interval in trace data?", default=1500)
+parser.add_option("--testTime", type="int", dest="testTime", help="How long (in seconds) is the testing time interval in trace data?", default=1000)
+parser.add_option("--Tb", type="float", dest="pBufferTime", help="player prefetch", default = -1 )
 (options, args) = parser.parse_args()
 algo = options.algo
-assert algo in ["OnABC", "OnRLS"]
+assert algo in ["OnCDF", "OnRLS"]
 traceData = options.traceData
 assert traceData in range(19)
 trainTime = options.trainTime                                      # number of active users
@@ -35,11 +35,14 @@ testTime = options.testTime                                      # number of act
 assert testTime > 0
 epsilon = options.epsilon
 assert epsilon > 0 and epsilon < 1
+pBufferTime = options.pBufferTime
+assert pBufferTime > 0
 
+print("Algo: " + algo +" Trace No.: " + str(traceData) +" trainTime= " + str(trainTime) + " testTime= "  + str(testTime) + " epsilon= "+ str(epsilon) + " Tb=" + str(pBufferTime))
 
 ### Read in the trace data. 
 traceDir = './dataset/fyp_lab/'
-print("現在用的是dataset " + str(traceData) + " pBufferTime=" + str(pBufferTime))
+# print("現在用的是dataset " + str(traceData) + " pBufferTime=" + str(pBufferTime))
 count = 0
 initialTime = 0
 networkEnvTime = [] 
@@ -61,7 +64,7 @@ with open(traceDir + str(traceData)+".txt") as traceDataFile:
         count = count  +1 
 
 c_hat_init = sum(networkEnvPacket[0:10000]) / (networkEnvTime[10000-1]-networkEnvTime[0]) # Just have a quick calc of the mean throughput
-print( str(c_hat_init) + "Mbps, this is mean throughput")
+# print( str(c_hat_init) + "Mbps, this is mean throughput")
 
 
 ## Generate frame capture times
@@ -115,7 +118,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
         message1 = "Frame: "+str(singleFrame)+". Now is time: "+str(runningTime)
         if now_go_real:
             message = message1 + " Exceed counts: " + str(countExceed)
-            if algo == "OnABC" and debug: 
+            if algo == "OnCDF" and debug: 
                 print(message+" Tuned epsilon: "+str(tuned_epsilon)) 
             elif algo == "OnRLS" and debug: 
                 print(message) 
@@ -138,7 +141,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     suggestedFrameSize = -np.Infinity 
     timeSlot = frame_capture_times[singleFrame] + 1/FPS + pBufferTime - runningTime # time allocation for transmission of a frame
 
-    if (algo == "OnABC"):
+    if (algo == "OnCDF"):
         backLen = FPS * M
         if len(transmitHistoryTimeLog) > 0:
             lookbackwardHistogramS =  utils.generatingBackwardSizeFromLog_fixLen(
@@ -168,7 +171,7 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
             decision_list = loglookbackwardHistogramS
 
             if (now_go_real and len(percentiles)>=backLen):
-                tuned_epsilon = np.quantile(percentiles[:len(percentiles)-10], epsilon, method="median_unbiased")
+                tuned_epsilon = np.quantile(percentiles[:len(percentiles)-10], epsilon, method="interpolated_inverted_cdf")
             else:
                 tuned_epsilon = epsilon
 
@@ -277,8 +280,8 @@ for singleFrame in tqdm(range( fullTimeInSec * FPS )) if debug==False else range
     ########################################################################################
     # will go to next "singleFrame"
 
-pyplot.hist(errors,bins=1000, range=(-50,50))
-pyplot.show()
+# pyplot.hist(errors,bins=1000, range=(-50,50))
+# pyplot.show()
 per100lr = exceedsRatios[1:]
 maxThroughputAll =  utils.calMaxData(startingFrame*(1/FPS), runningTime, networkEnvTime, networkEnvPacket)
 
