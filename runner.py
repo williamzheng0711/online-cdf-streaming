@@ -41,7 +41,7 @@ assert pBufferTime > 0
 print("Algo: " + algo +" Trace No.: " + str(traceData) +" trainTime= " + str(trainTime) + " testTime= "  + str(testTime) + " epsilon= "+ str(epsilon) + " Tb=" + str(pBufferTime))
 
 ### Read in the trace data. 
-traceDir = './dataset/fyp_lab/'
+traceDir = './dataset/trace_data_simulator/'
 # print("現在用的是dataset " + str(traceData) + " pBufferTime=" + str(pBufferTime))
 count = 0
 initialTime = 0
